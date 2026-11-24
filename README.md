@@ -62,8 +62,6 @@ everything the port needs from images of your discs.
 
 - A **New Nintendo 3DS, New 3DS XL or New 2DS XL**. The original 3DS / 3DS XL / 2DS are too slow and are not
   supported.
-- **Custom firmware** (Luma3DS) on the console, with the Homebrew Launcher and FBI. If you do not have it yet, follow
-  the guide at [3ds.hacks.guide](https://3ds.hacks.guide) - it installs all three.
 - An **SD card with about 3.5 GB free**, and a way to copy files to it (a card reader, or FTP with ftpd).
 - **Images of both of your discs** (step 1).
 - A computer with **Windows 10/11 (64-bit), macOS 11 or later, or Linux (64-bit)** and about 7 GB free while

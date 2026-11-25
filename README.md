@@ -1,8 +1,8 @@
 # PuebloCTR
 
 <p align="center">
-  <a href="https://www.youtube.com/watch?v=PYH2Y7hJE_o"><img src="https://i.ytimg.com/vi/PYH2Y7hJE_o/maxresdefault.jpg" alt="PuebloCTR beta - the demonstration video" width="560"></a><br>
-  <a href="https://www.youtube.com/watch?v=PYH2Y7hJE_o">▶ Watch the demonstration on YouTube</a>
+  <a href="https://www.youtube.com/watch?v=a4gt5h4pcDw"><img src="https://i.ytimg.com/vi/a4gt5h4pcDw/maxresdefault.jpg" alt="PuebloCTR beta - the demonstration video" width="560"></a><br>
+  <a href="https://www.youtube.com/watch?v=a4gt5h4pcDw">▶ Watch the demonstration on YouTube</a>
 </p>
 
 An unofficial port of a 2005 GameCube game to the **New Nintendo 3DS / New 2DS XL**, built on

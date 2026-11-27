@@ -49,7 +49,8 @@ void windowSay(const char* line)
 
 struct Choice {
     std::string disc1, disc2, out, ffmpeg;
-    bool textures = true, movies = true;
+    int textures = 2;  // 2: the pack and its list, 1: the list only (textures.pre), 0: none
+    bool movies = true;
     std::vector<std::string> saves;
 };
 Choice gChoice;
@@ -123,7 +124,7 @@ void work(Choice c)
     }
     args.insert(args.end(), {"--out", c.out});
     if (c.textures) {
-        args.push_back("--textures");
+        args.push_back(c.textures == 2 ? "--textures" : "--texture-list");
     }
     if (c.movies) {
         args.insert(args.end(), {"--movies", "--ffmpeg", ffmpegIn(c.ffmpeg)});
@@ -310,7 +311,15 @@ void frame(SDL_Window* window)
         SDL_ShowOpenFolderDialog(dialogDone, (void*) 3, window, gChoice.out.c_str(), false);
     }
     ImGui::Spacing();
-    ImGui::Checkbox("Texture pack (textures.pak, about 350 MB - smoother loading on the console)", &gChoice.textures);
+    ImGui::TextUnformatted("Textures:");
+    ImGui::SameLine();
+    ImGui::RadioButton("Pack and list (textures.pak + textures.pre, about 350 MB - smoother on the console)",
+                       &gChoice.textures, 2);
+    ImGui::Indent(ImGui::CalcTextSize("Textures: ").x);
+    ImGui::RadioButton("List only (textures.pre, under a minute - the pack is in the folder already; after an update)",
+                       &gChoice.textures, 1);
+    ImGui::RadioButton("None", &gChoice.textures, 0);
+    ImGui::Unindent(ImGui::CalcTextSize("Textures: ").x);
     ImGui::Checkbox("Movies (about 220 MB; needs ffmpeg with libx264)", &gChoice.movies);
     if (gChoice.movies && pathRow("ffmpeg", &gChoice.ffmpeg, "##ffmpeg")) {
         SDL_ShowOpenFileDialog(dialogDone, (void*) 4, window, kPrograms, (int) SDL_arraysize(kPrograms), nullptr, false);

@@ -1,0 +1,189 @@
+# Port patch 0346 (2026-11-23; docs/23 C5 + C2b): specular_mat is computed at
+# its first read from the copied inputs (RE4_SPEC_LAZY=0: for every info, as before); lightSetColor takes the colour
+# of a DispCol word seen before from a table (RE4_LIT_COLMEMO=0: computed, as before).
+diff -ruN -x '*.orig' a/src/game/trans.cpp b/src/game/trans.cpp
+--- a/src/game/trans.cpp	2026-11-23 10:38:46.274912722 +0900
++++ b/src/game/trans.cpp	2026-11-23 10:38:46.398008167 +0900
+@@ -322,7 +322,7 @@
+ void CalcSk1_x2(void* dst, void* src, u32 n);
+ int MakeWeightPaletteExt(cWeightExt* w, int n);
+ int MakeWeightPalette(cWeight* w, int n);
+-void updateMatrices(Mtx m, Mtx dst, cModel* model);
++void updateMatrices(Mtx m, Mtx dst, cModel* model); static int re4SpecStash(Mtx in, cModel* m); static void re4SpecGet();  /* port (patch 0346): end of the file */
+ void RefractShaderSetup(cModel* m, cModelInfo* info, cPolyHeader* part, Mtx mv); extern "C" void re4_gx_refract_copy(const void* dest);
+ 
+ // Binds model texture `id` to texture map `map`: from the GX work's texture objects (0..0xF7), or
+@@ -1242,11 +1242,11 @@
+         nParts = d->displist_num;
+         part = d->pParts;
+         if (m->scale.x == 1.0f && m->scale.y == 1.0f && m->scale.z == 1.0f) {
+-            updateMatrices(mat0, specular_mat, m);
++            if (!re4SpecStash(mat0, m)) updateMatrices(mat0, specular_mat, m);  /* port (patch 0346) */
+         } else {
+             PSMTXScale(inv, 1.0f / m->scale.x, 1.0f / m->scale.y, 1.0f / m->scale.z);
+             PSMTXConcat(inv, mat0, inv);
+-            updateMatrices(inv, specular_mat, m);
++            if (!re4SpecStash(inv, m)) updateMatrices(inv, specular_mat, m);  /* port (patch 0346) */
+         }
+         for (i = 0; i < nParts; i++) {
+             u8* p;
+@@ -1859,7 +1859,7 @@
+         Mtx t;
+         PSMTXScale(s, scale, -scale, 0.0f);
+         PSMTXTrans(t, 0.5f, 0.5f, 1.0f);
+-        PSMTXConcat(s, specular_mat, tmp);
++        re4SpecGet(); PSMTXConcat(s, specular_mat, tmp);  /* port (patch 0346) */
+         PSMTXConcat(t, tmp, tmp);
+     }
+     type = part->specular_type;
+@@ -1986,7 +1986,7 @@
+             Mtx t;
+             PSMTXScale(s, 0.5f, -0.5f, 0.0f);
+             PSMTXTrans(t, 0.5f, 0.5f, 1.0f);
+-            PSMTXConcat(s, specular_mat, tmp);
++            re4SpecGet(); PSMTXConcat(s, specular_mat, tmp);  /* port (patch 0346) */
+             PSMTXConcat(t, tmp, tmp);
+             GXLoadTexMtxImm(tmp, mtx, 0);
+             GXSetTexCoordGen2(coord, 0, 1, mtx, 0, 0x7D);
+@@ -2036,7 +2036,7 @@
+         }
+         PSMTXScale(s, scale, -scale, 0.0f);
+         PSMTXTrans(t, 0.5f, 0.5f, 1.0f);
+-        PSMTXConcat(s, specular_mat, tmp);
++        re4SpecGet(); PSMTXConcat(s, specular_mat, tmp);  /* port (patch 0346) */
+         PSMTXConcat(t, tmp, tmp);
+     }
+     st = TEV_STAGE_ID();
+@@ -3561,3 +3561,49 @@
+     }
+     re4MatPend = 0;
+ }
++
++/* PORT (patch 0346, C5 of the 3DS deep optimisation): specular_mat at its first read. commonModelTrans computed it for
++ * every info of a model (updateMatrices: Concat with the camera, Inverse, Transpose) while only the specular, the bump
++ * specular and the global illumination setups read it. Now the two inputs are copied (the model's matrix - a local in
++ * the scaled case - and the camera's as it is then) and the same three operations run before the first read
++ * (re4SpecGet at the three reads). Where the normal matrices live (re4_gx_nrm_dead 0) updateMatrices still runs, into
++ * a scratch matrix, for its GXSetIndTexMtx. RE4_SPEC_LAZY=0: as before. */
++#include <string.h>
++static int gSpecLazy = -1;
++static int re4SpecPend;
++static Mtx re4SpecIn, re4SpecCam;
++
++static int re4SpecStash(Mtx in, cModel* m)
++{
++    if (gSpecLazy < 0) {
++        const char* v = getenv("RE4_SPEC_LAZY");
++        gSpecLazy = !(v && *v == '0');
++        re4_log("specular matrix (patch 0346, RE4_SPEC_LAZY %d): %s", gSpecLazy,
++                gSpecLazy ? "at its first read" : "for every info");
++    }
++    if (!gSpecLazy) {
++        return 0;
++    }
++    if (!re4_gx_nrm_dead) {
++        Mtx scratch;
++        updateMatrices(in, scratch, m);
++    }
++    memcpy(re4SpecIn, in, sizeof(Mtx));
++    memcpy(re4SpecCam, pG->Camera.v_mat, sizeof(Mtx));
++    re4SpecPend = 1;
++    return 1;
++}
++
++static void re4SpecGet()
++{
++    Mtx mv;
++    Mtx inv;
++
++    if (!re4SpecPend) {
++        return;
++    }
++    re4SpecPend = 0;
++    PSMTXConcat(re4SpecCam, re4SpecIn, mv);
++    PSMTXInverse(mv, inv);
++    PSMTXTranspose(inv, specular_mat);
++}
+diff -ruN -x '*.orig' a/src/game/trans_lit.cpp b/src/game/trans_lit.cpp
+--- a/src/game/trans_lit.cpp	2026-11-23 10:38:46.270621452 +0900
++++ b/src/game/trans_lit.cpp	2026-11-23 10:38:46.398277876 +0900
+@@ -494,9 +494,9 @@
+ 
+ // GX light colour = DispCol.rgb x alpha / 128 (x the enemy's light-area scale when this is the
+ // area's light), clamped, alpha 0x80.
+-void lightSetColor(GXLightObj* lobj, cLight* pLi, cEm* pMod)
++static int re4LitColFast(GXLightObj* lobj, cLight* pLi, cEm* pMod); static void re4LitColKeep(GXColor c); void lightSetColor(GXLightObj* lobj, cLight* pLi, cEm* pMod)  /* port (patch 0346): end of the file */
+ {
+-    f32 col[3];
++    f32 col[3]; if (re4LitColFast(lobj, pLi, pMod)) return;
+     GXColor c;
+     f32 r = (f32) pLi->DispCol.r;
+     f32 g = (f32) pLi->DispCol.g;
+@@ -522,7 +522,7 @@
+     c.g = (u8) col[1];
+     c.b = (u8) col[2];
+     c.a = 0x80;
+-    GXInitLightColor(lobj, c);
++    GXInitLightColor(lobj, c); re4LitColKeep(c);  /* port (patch 0346) */
+ }
+ 
+ // Ambient colour of both colour channels.
+@@ -560,3 +560,58 @@
+             re4_lit_deadpos, re4_lit_deadpos ? "left out" : "computed");
+     return re4_lit_deadpos;
+ }
++
++/* PORT (patch 0346, C2b of the 3DS deep optimisation): lightSetColor's result depends on the four bytes of DispCol
++ * alone but in the branch of an enemy's light area. A table of 64 places keyed by that word gives the colour computed
++ * for it before (stored by the computation itself: re4LitColKeep); the area branch goes the whole way.
++ * RE4_LIT_COLMEMO=0: as before. */
++#include <string.h>
++static int gLitColMemo = -1;
++static int re4ColSlot = -1;
++static u32 re4ColPend;
++static u32 re4ColKey[64];
++static GXColor re4ColVal[64];
++static u8 re4ColOk[64];
++
++static int re4LitColFast(GXLightObj* lobj, cLight* pLi, cEm* pMod)
++{
++    u32 key;
++    int slot;
++
++    re4ColSlot = -1;
++    if (gLitColMemo < 0) {
++        const char* v = getenv("RE4_LIT_COLMEMO");
++        gLitColMemo = !(v && *v == '0');
++        re4_log("light colour (patch 0346, RE4_LIT_COLMEMO %d): %s", gLitColMemo,
++                gLitColMemo ? "from the table" : "computed");
++    }
++    if (!gLitColMemo) {
++        return 0;
++    }
++    if (pMod != NULL) {
++        cModelState* la = &pMod->State;
++
++        if (la->IsLightIgnore() == 1 && la->IsLightIgnoreUse() == 1 && la->GetLightNo() == pLi->LitIndex) {
++            return 0;
++        }
++    }
++    memcpy(&key, &pLi->DispCol, 4);
++    slot = (int) ((key * 0x9E3779B1u) >> 26);
++    if (re4ColOk[slot] && re4ColKey[slot] == key) {
++        GXInitLightColor(lobj, re4ColVal[slot]);
++        return 1;
++    }
++    re4ColSlot = slot;
++    re4ColPend = key;
++    return 0;
++}
++
++static void re4LitColKeep(GXColor c)
++{
++    if (re4ColSlot >= 0) {
++        re4ColKey[re4ColSlot] = re4ColPend;
++        re4ColVal[re4ColSlot] = c;
++        re4ColOk[re4ColSlot] = 1;
++        re4ColSlot = -1;
++    }
++}

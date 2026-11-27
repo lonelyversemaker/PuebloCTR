@@ -1,0 +1,101 @@
+# Port patch 0344 (2026-11-22; docs/23 C3): the reset after a model drawn
+# straight from the ordering table waits (GXSetAlphaUpdate(0), GXSetDstAlpha(0, 0), channel 0): ExecOt does it before
+# an entry that is not ModelRender and at the table's end; the state at every draw is the same. RE4_MR_LAZY=0: as before.
+diff -ruN -x '*.orig' a/src/game/trans.cpp b/src/game/trans.cpp
+--- a/src/game/trans.cpp	2026-11-22 22:08:11.293072973 +0900
++++ b/src/game/trans.cpp	2026-11-22 22:08:11.427643500 +0900
+@@ -993,7 +993,7 @@
+ 
+ // OT callback for a model: z mode by z_mode (0 test+write, 1 test only, 2 off), the alpha-omit
+ // compare, then commonModelTrans with the camera view; invisible models (invisible_factor 0) skip.
+-void ModelRender(cModel* m)
++int re4MrLazyEnd(); void ModelRender(cModel* m)  /* port (patch 0344): the reset after a model waits (end of the file) */
+ {
+     static int modeltransalphaupdate = 1;
+ 
+@@ -1022,7 +1022,7 @@
+         GXSetAlphaUpdate(1);
+         GXSetDstAlpha(1, 0);
+     }
+-    commonModelTrans(m, m->pModelInfo, pG->Camera.v_mat, 0);
++    commonModelTrans(m, m->pModelInfo, pG->Camera.v_mat, 0); if (re4MrLazyEnd()) return;  /* port (patch 0344) */
+     if (modeltransalphaupdate) {
+         GXSetAlphaUpdate(0);
+         GXSetDstAlpha(0, 0);
+@@ -3437,3 +3437,46 @@
+         re4SkinEnd();
+     }
+ }
++
++/* PORT (patch 0344, C3 of the 3DS deep optimisation): the reset after a model drawn straight from the ordering table
++ * waits. Done at once: what the next model does not set itself (shaderReset's indirect stages, channel 1, the alpha
++ * compare). Waiting (re4_mr_pending): GXSetAlphaUpdate(0), GXSetDstAlpha(0, 0) and channel 0's reset - ExecOt does
++ * them before any entry that is not ModelRender and at the table's end; a ModelRender that follows sets all three
++ * before its first draw (the same words as before the reset: the register shadow drops them), an invisible one leaves
++ * them waiting. The state at every draw is the same. Not from the table, with the bounding boxes shown or with
++ * RE4_MR_LAZY=0: as before. */
++#include <stdlib.h>
++extern void (*g_OtCurFunc)(void*);
++int re4_mr_pending;
++static int gMrLazy = -1;
++
++int re4MrLazyEnd()
++{
++    if (gMrLazy < 0) {
++        const char* v = getenv("RE4_MR_LAZY");
++        gMrLazy = !(v && *v == '0');
++        re4_log("model reset (patch 0344, RE4_MR_LAZY %d): the reset after a model %s", gMrLazy,
++                gMrLazy ? "waits for the next entry" : "at once");
++    }
++    if (!gMrLazy || g_OtCurFunc != (void (*)(void*)) ModelRender || DbgFlagChk(pG, DBG_BOUNDING_DISP)) {
++        return 0;
++    }
++    if (IND_STAGE_ID() != 0) {
++        GXSetNumIndStages(0);
++        for (int i = 0; i < 16; i++) {
++            GXSetTevDirect((GXTevStageID) i);
++        }
++    }
++    GXSetChanCtrl(1, 0, 0, 0, 0, 0, 2);
++    GXSetAlphaCompare(7, 0, 1, 7, 0);
++    re4_mr_pending = 1;
++    return 1;
++}
++
++void re4MrReset()
++{
++    re4_mr_pending = 0;
++    GXSetAlphaUpdate(0);
++    GXSetDstAlpha(0, 0);
++    GXSetChanCtrl(0, 0, 0, 0, 0, 0, 2);
++}
+diff -ruN -x '*.orig' a/src/game/trans_ot.cpp b/src/game/trans_ot.cpp
+--- a/src/game/trans_ot.cpp	2026-11-22 22:08:11.295726793 +0900
++++ b/src/game/trans_ot.cpp	2026-11-22 22:08:11.427968540 +0900
+@@ -278,7 +278,7 @@
+ // Returns the number of entries drawn.
+ extern "C" void re4_gx_owner(void* data, void* func, int table); /* port: runtime/gx_owner.cpp */
+ void re4EspBatchBefore(void (*func)(void*), u16 kind); /* port (patch 0339): esp_sub.cpp */
+-void re4EspBatchFlush(); /* port (patch 0339) */
++void re4EspBatchFlush(); /* port (patch 0339) */ extern int re4_mr_pending; void re4MrReset(); void ModelRender(cModel* m); /* port (patch 0344) */
+ 
+ int ExecOt(int type)
+ {
+@@ -293,7 +293,7 @@
+         for (; p; p = p->next) {
+             if (p->data) {
+                 count++;
+-                re4EspBatchBefore(p->func, p->kind); /* port (patch 0339): a sprite batch drawn first */
++                if (re4_mr_pending && p->func != (void (*)(void*)) ModelRender) re4MrReset(); re4EspBatchBefore(p->func, p->kind); /* port (patch 0339): a sprite batch drawn first; (patch 0344) a model's reset before another kind */
+                 re4_gx_owner(p->data, (void*) p->func, type); /* port: the entry's object (patch 0137) */
+                 g_OtSerial++;  // port (3.6)
+                 g_OtCurFunc = p->func;
+@@ -302,7 +302,7 @@
+                 w->prev_kind = p->kind;
+             }
+         }
+-        re4EspBatchFlush(); /* port (patch 0339) */
++        if (re4_mr_pending) re4MrReset(); re4EspBatchFlush(); /* port (patch 0339, 0344) */
+         re4_gx_owner(0, 0, type); /* port: no object after the table */
+     }
+     GXSetAlphaCompare(7, 0, 1, 7, 0);

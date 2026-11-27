@@ -1,0 +1,28 @@
+# Port patch 0383 (2026-11-27, the 3DS settings' "Hide HUD on top screen"): IDSystem::trans leaves out the classes
+# IDC_LIFE_METER (Leon's and Ashley's meters, the ammo digits, EMPTY) and IDC_BLLT_ICON (the ammo icon) of IdSys while
+# re4_top_hud_off (runtime/cheats.cpp) is on and no sub screen is open (the case shows the meter on purpose). The
+# action and QTE prompts, timers, message windows stay. Off: as before.
+--- a/src/game/id_sys.cpp	2026-11-27 13:09:49.687296735 +0900
++++ b/src/game/id_sys.cpp	2026-11-27 13:12:47.482243558 +0900
+@@ -990,6 +990,8 @@
+ 
+ // Per-frame draw (unless Disp_flg 0x2000 hides the HUD): queues every visible root unit whose class
+ // is not switched off (Disp_flg 0x10000 also skips OT type 0x13).
++extern "C" volatile int re4_top_hud_off;  /* port: runtime/cheats.cpp (patch 0383) */
++
+ void IDSystem::trans()
+ {
+     int i;
+@@ -1009,6 +1011,12 @@
+         if (FlagChkVar(m_disp_off, (u32) u->classNo)) {
+             continue;
+         }
++        /* port (patch 0383, the 3DS settings): the life meter (Leon, Ashley, the ammo digits, EMPTY) and the ammo
++           icon off the top screen - the bottom screen shows them; kept while a sub screen is open (the case) */
++        if (re4_top_hud_off && this == &IdSys && (u->classNo == IDC_LIFE_METER || u->classNo == IDC_BLLT_ICON) &&
++            !StaFlagChk(pG, STA_SUB_SCRN)) {
++            continue;
++        }
+         if (u->be_flag == 0xFF || !(u->be_flag & 0x1)) {
+             continue;
+         }

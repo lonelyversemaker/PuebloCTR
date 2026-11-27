@@ -1,0 +1,173 @@
+# Port patch 0349 (2026-11-25, Т1 of docs/25-cuts-full.md): the foot shadow quads of one DrawFootShadow as one draw -
+# one quad record (re4_gx_put_quads, as patch 0339 v2) with the channel's ambient and material from the vertex
+# ((a, a, a, a) per quad: the same product as the registers gave); afterwards the state the last quad left.
+# RE4_SHD_BATCH=0: a GXBegin per quad as before; 2 / 3: as before / batched, with counts in the log every 300 frames.
+diff -ruN a/src/game/foot_shadow.cpp b/src/game/foot_shadow.cpp
+--- a/src/game/foot_shadow.cpp	2026-11-25 15:53:10.914932348 +0900
++++ b/src/game/foot_shadow.cpp	2026-11-25 15:53:11.011795692 +0900
+@@ -1,5 +1,8 @@
+ // game/foot_shadow.cpp: character foot shadows cast by the type 4 lights.
+ 
++#include <stdlib.h>
++#include <string.h>
++
+ #include "light.h"
+ #include "atari.h"
+ #include "global.h"
+@@ -17,6 +20,91 @@
+ static int s_shdRun;
+ static GXTexObj* s_shdTex;
+ 
++/* port (patch 0349, 2026-11-25): the quads of one DrawFootShadow as one draw - one quad record (re4_gx_put_quads, as
++   the sprite batches of patch 0339 v2), the channel's ambient and material both from the vertex for it: (a, a, a, a)
++   per quad, the same product a * a the registers gave. Afterwards the state the last quad left. RE4_SHD_BATCH=0: a
++   GXBegin per quad as before; 2: as before, with counts in the log every 300 frames; 3: batched, with the counts. */
++extern "C" void re4_gx_put_quads(const unsigned int* words); /* port: runtime/gx_fifo.cpp (patch 0339 v2) */
++extern "C" void __GXSetDirtyState(void); /* the SDK (GXGeometry.c): what GXBegin sends first */
++extern "C" void re4_log(const char* fmt, ...);
++#define SHD_BATCH_MAX 64
++static int s_shdBatch = -1;
++static int s_shdN;
++static GXColor s_shdLastCol;
++static unsigned int s_shdQ[9 + 13 * SHD_BATCH_MAX];
++static u32 s_shdCnt[5], s_shdCntFrame;  // quads, runs, draws, quads of alpha 0, the most quads in one draw
++
++static int shdBatchMode(void)
++{
++    if (s_shdBatch < 0) {
++        const char* e = getenv("RE4_SHD_BATCH");
++        s_shdBatch = e ? atoi(e) : 1;
++        if (s_shdBatch != 1) {
++            re4_log("foot shadows: RE4_SHD_BATCH=%d", s_shdBatch);
++        }
++    }
++    return s_shdBatch;
++}
++
++static void shdCount(int what)
++{
++    if (s_shdBatch < 2) {
++        return;
++    }
++    if (s_shdCntFrame != pG->Frame_cnt && pG->Frame_cnt % 300 == 0) {
++        re4_log("foot shadows (frame %u, 300 frames): quads %u, runs %u, draws %u, alpha 0 %u, most in a draw %u",
++                (unsigned) pG->Frame_cnt, s_shdCnt[0], s_shdCnt[1], s_shdCnt[2], s_shdCnt[3], s_shdCnt[4]);
++        s_shdCnt[0] = s_shdCnt[1] = s_shdCnt[2] = s_shdCnt[3] = s_shdCnt[4] = 0;
++    }
++    s_shdCntFrame = pG->Frame_cnt;
++    s_shdCnt[what]++;
++}
++
++static void shdBatchFlush(void)
++{
++    const int n = s_shdN;
++    if (n == 0) {
++        return;
++    }
++    s_shdN = 0;
++    shdCount(2);
++    if ((u32) n > s_shdCnt[4]) {
++        s_shdCnt[4] = (u32) n;
++    }
++    s_shdQ[0] = (unsigned int) n;
++    {
++        static const f32 st[8] = {0.0f, 0.0f, 1.0f, 0.0f, 1.0f, 1.0f, 0.0f, 1.0f};  // as the GXBegin quad's corners
++        memcpy(&s_shdQ[1], st, sizeof(st));
++    }
++    GXSetChanCtrl(4, 1, 1, 1, 0, 0, 2);  // lit, no lights: the ambient and the material from the vertex
++    GXClearVtxDesc();  // (the XF's input spec - 0x1008, a colour per vertex - follows the description)
++    GXSetVtxDesc(9, 1);
++    GXSetVtxDesc(0xB, 1);
++    GXSetVtxDesc(0xD, 1);
++    __GXSetDirtyState();  // (the state the GX library holds back until a GXBegin)
++    re4_gx_put_quads(s_shdQ);
++    // the state the last quad left
++    GXSetChanCtrl(4, 1, 0, 0, 0, 0, 2);
++    GXSetChanAmbColor(4, s_shdLastCol);
++    GXSetChanMatColor(4, s_shdLastCol);
++    GXClearVtxDesc();
++    GXSetVtxDesc(9, 1);
++    GXSetVtxDesc(0xD, 1);
++}
++
++static void shdBatchAdd(Vec* pos, f32 size, GXColor col)
++{
++    if (s_shdN >= SHD_BATCH_MAX) {
++        shdBatchFlush();
++    }
++    unsigned int* q = &s_shdQ[9 + 13 * s_shdN++];
++    const f32 p[12] = {pos->x - size, pos->y, pos->z - size, pos->x + size, pos->y, pos->z - size,
++                       pos->x + size, pos->y, pos->z + size, pos->x - size, pos->y, pos->z + size};
++    memcpy(q, p, sizeof(p));
++    q[12] = (unsigned int) col.r << 24 | (unsigned int) col.g << 16 | (unsigned int) col.b << 8 | col.a;
++    s_shdLastCol = col;
++}
++
+ // One shadow quad.
+ struct SHD_DISP {
+     Vec pos;
+@@ -37,8 +125,15 @@
+ // a shadow sprite (texture 0x13) per joint plus interpolated blobs between flagged joints; alpha
+ // scales with the light's red component, Shd_color and the distance rate. Disp_flg 0x02000000 or
+ // Shd_color 0xFF disables it.
++static void DrawFootShadowBody(cModel* pMod);
+ void DrawFootShadow(cModel* pMod)
+ {
++    DrawFootShadowBody(pMod);
++    shdBatchFlush();  // port (patch 0349)
++}
++
++static void DrawFootShadowBody(cModel* pMod)
++{
+     Vec dir;
+     Vec lpos;
+     Vec pos;
+@@ -246,13 +341,23 @@
+             col.a = a;
+             col.r = col.g = col.b = c;
+         }
+-        GXSetChanAmbColor(4, col);
+-        GXSetChanMatColor(4, col);
+         if (tex != s_shdTex) {
++            shdBatchFlush();  // port (patch 0349)
+             GXLoadTexObj(tex, 0);
+             s_shdTex = tex;
+         }
++        if (s_shdBatch & 1) {  // port (patch 0349): into the run's draw
++            shdCount(0);
++            if (a == 0) {
++                shdCount(3);
++            }
++            shdBatchAdd(pos, size, col);
++            return;
++        }
++        GXSetChanAmbColor(4, col);
++        GXSetChanMatColor(4, col);
+     } else {
++    shdBatchFlush();  // port (patch 0349): a run before (another light) drawn first
+     GXSetAlphaCompare(7, 0, 1, 7, 0);
+     a = (u8) alpha;
+     GXSetNumChans(1);
+@@ -292,6 +397,22 @@
+     GXSetVtxAttrFmt(0, 0xD, 1, 4, 0);
+     s_shdRun = 1;
+     s_shdTex = tex;
++    if (shdBatchMode() >= 0) {
++        shdCount(1);
++    }
++    if (s_shdBatch & 1) {  // port (patch 0349): the run's draw starts with this quad
++        shdCount(0);
++        if (a == 0) {
++            shdCount(3);
++        }
++        shdBatchAdd(pos, size, col);
++        return;
++    }
++    }
++    shdCount(0);
++    shdCount(2);
++    if (((u8) alpha) == 0) {
++        shdCount(3);
+     }
+     GXBegin(0x80, 0, 4);
+     GXPosition3f32(pos->x - size, pos->y, pos->z - size);

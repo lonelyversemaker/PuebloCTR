@@ -47,7 +47,9 @@ extern "C" volatile int re4_audio_stretch_on;
 namespace {
 
 const int kMaxBuffers = 8;
-const unsigned kTarget = 1920;  // frames kept in the ring (60 ms), as runtime/ai.cpp's reader
+// frames kept in the ring (60 ms), as runtime/ai.cpp's reader; (2026-11-26) RE4_3DS_AUDIO_TARGET: other ms (30-150)
+// - the sound's cushion when the game's thread is late (a dry ring gets silence, whatever the buffers), its latency
+unsigned gTarget = 1920;
 const unsigned kSkip = 8000;    // more than this (250 ms): skip to the target
 
 ndspWaveBuf gBuf[kMaxBuffers];
@@ -236,7 +238,7 @@ void stretchInit()
 void stretchTake(int16_t* pcm, int frames, unsigned fill)
 {
     // (within 40 ms of the target the channel's rate does it, as ever: refill)
-    double excess = (double) fill - (double) kTarget;
+    double excess = (double) fill - (double) gTarget;
     excess = excess > 1280.0 ? excess - 1280.0 : excess < -1280.0 ? excess + 1280.0 : 0.0;
     double drain = excess / (32000.0 * 2.0);
     drain = drain > 0.1 ? 0.1 : drain < -0.1 ? -0.1 : drain;
@@ -261,16 +263,16 @@ void refill(int16_t* pcm)
     re4_audio_stats(&blocks, &fill, &overruns, &underruns, &skips);
     if (fill > kSkip) {
         // after a pause: what the game played meanwhile is gone
-        for (unsigned n = fill - kTarget; n;) {
+        for (unsigned n = fill - gTarget; n;) {
             const unsigned part = n < 1024 ? n : 1024;
             re4_audio_take(gDrop, (int) part);
             n -= part;
         }
-        fill = kTarget;
+        fill = gTarget;
         gSkips++;
     }
     // a little faster when the ring fills up, slower when it runs low (1/65536 steps, as runtime/ai.cpp)
-    int adjust = ((int) fill - (int) kTarget) / 8;
+    int adjust = ((int) fill - (int) gTarget) / 8;
     adjust = adjust > 328 ? 328 : adjust < -328 ? -328 : adjust;
     ndspChnSetRate(0, 32000.0f * (1.0f + adjust / 65536.0f));
     if (gStretch) {
@@ -416,6 +418,11 @@ int re4_3ds_audio_start(void)
     gBuffers = gBuffers < 2 ? 2 : gBuffers > kMaxBuffers ? kMaxBuffers : gBuffers;
     gFrames = setting("RE4_3DS_AUDIO_FRAMES", 640);
     gFrames = gFrames < 160 ? 160 : gFrames > 4096 ? 4096 : gFrames;
+    const int targetMs = setting("RE4_3DS_AUDIO_TARGET", 60);
+    if (targetMs != 60) {
+        gTarget = (unsigned) (targetMs < 30 ? 30 : targetMs > 150 ? 150 : targetMs) * 32;
+        re4_log("3ds: sound: %u ms kept in the ring (RE4_3DS_AUDIO_TARGET; 60 before)", gTarget / 32);
+    }
     const Result r = ndspInit();
     if (R_FAILED(r)) {
         re4_log("3ds: no sound: ndspInit failed (0x%08lx; the DSP firmware sdmc:/3ds/dspfirm.cdc missing?)",

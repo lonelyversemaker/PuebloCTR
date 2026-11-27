@@ -1,0 +1,101 @@
+# Port patch 0386 (2026-11-27, the 3DS settings' cheat "All weapons at the merchant", runtime/cheats.cpp
+# re4_merchant_weapons): a shop visit offers every weapon its price table prices (not 0x17, not 0x40), one piece
+# each, at the game's prices; Merchant::save leaves them out of the merchant's data - the card never keeps the
+# offer. Hooks on existing lines (byte views keep their line numbers), the code at the file's end.
+diff -ruN a/src/game/merchant.cpp b/src/game/merchant.cpp
+--- a/src/game/merchant.cpp	2026-11-27 18:21:06.138379320 +0900
++++ b/src/game/merchant.cpp	2026-11-27 18:21:06.450606676 +0900
+@@ -1595,7 +1595,7 @@
+ }
+ 
+ // Shop session object (sub screen): copies the character's tables and loads its data.
+-Merchant::Merchant(MerchantCharacter* c)
++void re4ShopOffer(STOCK_INFO* st, PRICE_INFO* sell); void re4ShopKeepOwn(MERCHANT_DATA* d); Merchant::Merchant(MerchantCharacter* c)
+ {
+     m_p_info = c->m_p_info;
+     m_p_sell = c->m_p_sell;
+@@ -1603,7 +1603,7 @@
+     m_p_lvup = c->m_p_lvup;
+     memclr_asm(&m_stock, sizeof(STOCK_INFO));
+     memclr_asm(&level, sizeof(LEVEL_INFO));
+-    load(c->m_p_data);
++    load(c->m_p_data); re4ShopOffer(&m_stock, m_p_sell);  /* port (patch 0386): the 3DS cheat, this visit only */
+ }
+ 
+ // Writes the session's stock/tune/favor/discount back into the merchant data.
+@@ -1614,7 +1614,7 @@
+     p_data->friendship = m_friendship;
+     p_data->study_num = m_study_num;
+     p_data->reduction_ratio = m_reduction_ratio;
+-    p_data->bonus_flag = m_bonus_flag;
++    p_data->bonus_flag = m_bonus_flag; re4ShopKeepOwn(p_data);  /* port (patch 0386): never the cheat's offer */
+ }
+ 
+ // Loads the session from the merchant data.
+@@ -2410,3 +2410,66 @@
+ }
+ 
+ asm(".section .sdata,\"aw\"\n\t.balign 8\n\t.text");
++
++/* port (patch 0386, 2026-11-27): the 3DS settings' cheat "All weapons at the merchant" (runtime/cheats.cpp
++   re4_merchant_weapons). When a shop visit begins, every weapon its price table prices joins the visit's stock, one
++   piece each and without the "new" mark - but the story's rocket launcher 0x17 and the free punisher 0x40 of the blue
++   medallions. The game's own prices, tune-ups as the story gives them. Merchant::save (every frame of the shop) takes
++   them out of the merchant's data again: the card never keeps the offer, a weapon bought stays Leon's. */
++extern "C" volatile int re4_merchant_weapons;
++extern "C" void re4_log(const char* fmt, ...);
++static u16 re4ShopAdded[STOCK_MAX];
++static int re4ShopAddedN;
++
++void re4ShopOffer(STOCK_INFO* st, PRICE_INFO* sell)
++{
++    re4ShopAddedN = 0;
++    if (!re4_merchant_weapons || !sell) {
++        return;
++    }
++    int n = 0;
++    while (n < STOCK_MAX && st->e[n].id != 0xFFFF) {
++        n++;
++    }
++    for (PRICE_INFO* p = sell; p->id != 0xFFFF && n + 1 < STOCK_MAX; p++) {
++        if (itemType(p->id) != 1 || p->id == 0x17 || p->id == 0x40) {
++            continue;
++        }
++        int have = 0;
++        for (int i = 0; i < n && !have; i++) {
++            have = st->e[i].id == p->id;
++        }
++        if (have) {
++            continue;
++        }
++        StockEntry* e = &st->e[n++];
++        e->id = p->id;
++        e->num = 1;
++        e->isNew = 0;
++        st->e[n].id = 0xFFFF;  /* (n + 1 < STOCK_MAX: the end mark has its place) */
++        re4ShopAdded[re4ShopAddedN++] = p->id;
++    }
++    re4_log("cheat: the merchant offers %d weapons more (this visit)", re4ShopAddedN);
++}
++
++void re4ShopKeepOwn(MERCHANT_DATA* d)
++{
++    if (!re4ShopAddedN || !d) {
++        return;
++    }
++    int w = 0, r = 0;
++    for (; r < STOCK_MAX && d->stock.e[r].id != 0xFFFF; r++) {
++        int ours = 0;
++        for (int k = 0; k < re4ShopAddedN && !ours; k++) {
++            ours = d->stock.e[r].id == re4ShopAdded[k];
++        }
++        if (!ours) {
++            d->stock.e[w++] = d->stock.e[r];
++        }
++    }
++    for (; w < r; w++) {
++        d->stock.e[w].id = 0xFFFF;
++        d->stock.e[w].num = 0;
++        d->stock.e[w].isNew = 0;
++    }
++}

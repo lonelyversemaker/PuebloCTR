@@ -17,6 +17,8 @@
 
 extern "C" {
 unsigned re4_pad_rumble(void);  // runtime/pad.cpp: bit 4 the game shows a menu
+extern volatile int re4_wep_want;  // runtime/cheats.cpp (patch 0385): the D-pad weapons - the item id asked for
+extern volatile unsigned char re4_wep_slot[4];  // each arrow's weapon (3ds settings)
 void re4_log(const char* fmt, ...);
 }
 
@@ -26,13 +28,14 @@ const char kPath[] = "sdmc:/3ds/pueblo/controls.bin";
 
 struct File {
     char magic[4];  // "PCB1"
-    u8 version;     // 4 (2: the quick turn added, 3: the moves, 4: the C stick's; an older file: the defaults)
-    u8 actions;     // ctl::kActions (20)
+    u8 version;     // 5 (2: the quick turn added, 3: the moves, 4: the C stick's, 5: the D-pad weapons; 4 still read)
+    u8 actions;     // ctl::kActions (24)
     u8 keys[ctl::kActions][2];
     u8 pad[2];
-    u32 sum;  // FNV-1a of the bytes before (at 48)
+    u32 sum;  // FNV-1a of the bytes before (at 56)
 };
-static_assert(sizeof(File) == 52, "controls.bin is 52 bytes");
+static_assert(sizeof(File) == 60, "controls.bin is 60 bytes");
+const int kActions4 = 20;  // (version 4: 52 bytes, its sum at 48)
 
 ctl::Map gMap = ctl::defaults();
 bool gOn;                     // the mapping applies (the settings screen is on)
@@ -54,7 +57,8 @@ const char* const kKeyNames[ctl::kKeys] = {"A", "B", "X", "Y", "L", "R", "ZL", "
                                            "CRight"};
 const char* const kActionNames[ctl::kActions] = {"forward", "back", "left", "right", "look up", "look down",
                                                  "look left", "look right", "action", "run", "quick turn", "aim",
-                                                 "fire", "reload", "knife", "slash", "Ashley", "case", "map", "options"};
+                                                 "fire", "reload", "knife", "slash", "Ashley", "case", "map", "options",
+                                                 "weapon up", "weapon down", "weapon left", "weapon right"};
 
 u32 fnv(const u8* p, size_t n)
 {
@@ -92,8 +96,26 @@ void load()
     File f;
     const size_t n = fread(&f, 1, sizeof(f), fp);
     fclose(fp);
-    if (n != sizeof(f) || memcmp(f.magic, "PCB1", 4) || f.version != 4 || f.actions != ctl::kActions ||
-        f.sum != fnv((const u8*) &f, offsetof(File, sum))) {
+    u32 sum4;  // (2026-11-27) version 4: 20 actions, the D-pad weapons' on their arrows where no action has them (from
+    // 52 bytes on: a beta of version 4 on the same card writes over the first 52 of the 60)
+    memcpy(&sum4, (const u8*) &f + 48, 4);
+    const bool v4 = n >= 52 && !memcmp(f.magic, "PCB1", 4) && f.version == 4 && f.actions == kActions4 &&
+                    sum4 == fnv((const u8*) &f, 48);
+    if (v4) {
+        const ctl::Map d = ctl::defaults();
+        for (int a = kActions4; a < ctl::kActions; a++) {
+            f.keys[a][0] = d.b[a].k[0];
+            f.keys[a][1] = ctl::kNone;
+            for (int b = 0; b < kActions4; b++) {
+                if (f.keys[b][0] == d.b[a].k[0] || f.keys[b][1] == d.b[a].k[0]) {
+                    f.keys[a][0] = ctl::kNone;
+                }
+            }
+        }
+        re4_log("3ds: buttons: %s of version 4 - the D-pad weapons on the free arrows", kPath);
+    }
+    if (!v4 && (n != sizeof(f) || memcmp(f.magic, "PCB1", 4) || f.version != 5 || f.actions != ctl::kActions ||
+        f.sum != fnv((const u8*) &f, offsetof(File, sum)))) {
         re4_log("3ds: buttons: %s not ours or damaged (%u bytes) - the usual layout", kPath, (unsigned) n);
         return;
     }
@@ -115,7 +137,7 @@ bool save()
     File f;
     memset(&f, 0, sizeof(f));
     memcpy(f.magic, "PCB1", 4);
-    f.version = 4;
+    f.version = 5;
     f.actions = ctl::kActions;
     const ctl::Map m = gMap;
     for (int a = 0; a < ctl::kActions; a++) {
@@ -190,7 +212,25 @@ extern "C" unsigned re4_3ds_controls_pad(unsigned keys, int select)
         return 0;
     }
     bool turn = false;
-    unsigned out = gSwitch.step(gMap, keys, menu, &turn);
+    // (2026-11-27, patch 0385) the D-pad weapons: an arrow's action without a weapon is as unbound (its key passes
+    // through as the GameCube D-pad, as before); one with a weapon asks the game for it when its binding acts
+    ctl::Map eff = gMap;
+    for (int i = 0; i < 4; i++) {
+        if (!re4_wep_slot[i]) {
+            eff.b[ctl::kWepUp + i].k[0] = eff.b[ctl::kWepUp + i].k[1] = ctl::kNone;
+        }
+    }
+    unsigned out = gSwitch.step(eff, keys, menu, &turn);
+    {
+        static unsigned last;
+        for (int i = 0; i < 4 && !menu; i++) {
+            const int a = ctl::kWepUp + i;
+            if (ctl::acting(eff, keys, a) && !ctl::acting(eff, last, a)) {
+                re4_wep_want = re4_wep_slot[i];
+            }
+        }
+        last = keys;
+    }
     gTurnFrames = turn ? gTurnFrames + 1 : 0;
     if (gTurnFrames >= 2) {
         out |= ctl::kGcB;

@@ -1,0 +1,290 @@
+# Port patch 0352 (2026-11-24; plan 24, X2): the skinning jobs left after Render_done are taken by the GX thread
+# at the draws that read their vertices (re4_skin_need), not all at the record after the picture; a job has a state,
+# an info's positions' array names its job. RE4_SKIN_LAZY: 0 as before, 1 lazy, 2 lazy and checked, 3 (default) while the GX thread holds. The same bits.
+diff -ruN a/src/game/trans.cpp b/src/game/trans.cpp
+--- a/src/game/trans.cpp	2026-11-26 02:10:34.362544312 +0900
++++ b/src/game/trans.cpp	2026-11-26 02:10:34.461505948 +0900
+@@ -3146,7 +3146,7 @@
+ void re4SkinJoin(void);            // main.cpp, after Render_done
+ void re4SkinSettle(void);          // main.cpp, after Render
+ }
+-static int re4SkinLate;  // the jobs left to the GX thread after Render_done (re4_skin_finish_fn)
++static int re4SkinLate; static int re4SkinClaim(u32 i); static void re4SkinMarkDone(u32 i); static void re4SkinLazyEnd(u32 c); static void re4SkinWantGx(); static void re4SkinDstPut(void* dst, u32 n, int kind, int first); static void re4SkinLazyInit(); static void re4SkinLazyLog();  /* port (patch 0352): the end of the file */
+ static void re4SkinEnd();
+ 
+ void calcWeightMat(cModel* m)
+@@ -3228,7 +3228,7 @@
+ {
+     if (re4SkinOn < 0) {
+         const char* e = getenv("RE4_SKIN_JOBS");
+-        re4SkinOn = e ? atoi(e) : 1;
++        re4SkinOn = e ? atoi(e) : 1; re4SkinLazyInit();  /* port (patch 0352) */
+         Sk1Pairs<0>(0, 0, 0, 0x00070007);  // their getenv once, here on the game's thread (no vertices)
+         Sk1Pairs<1>(0, 0, 0, 0x00060006);
+     }
+@@ -3314,7 +3314,7 @@
+     t.n = n;
+     t.gqr = sGqr6;
+     t.kind = kind;
+-    re4SkinPals[re4SkinPalUsed - 1].tasks++;
++    re4SkinDstPut(dst, n, kind, !re4SkinPals[re4SkinPalUsed - 1].tasks); re4SkinPals[re4SkinPalUsed - 1].tasks++;  /* port (patch 0352) */
+     re4SkinJobs[re4SkinCount].vertices += n;
+ }
+ 
+@@ -3322,7 +3322,7 @@
+ {
+     __atomic_fetch_add(&re4SkinStat[who][0], 1, __ATOMIC_RELAXED);
+     __atomic_fetch_add(&re4SkinStat[who][1], re4SkinJobs[i].vertices, __ATOMIC_RELAXED);
+-    __atomic_fetch_add(&re4SkinDone, 1, __ATOMIC_SEQ_CST);
++    re4SkinMarkDone(i); __atomic_fetch_add(&re4SkinDone, 1, __ATOMIC_SEQ_CST);  /* port (patch 0352) */
+ }
+ 
+ // One job (1), or 0 when there was none. The GX thread (who 0) gives way to records between pieces when `yield`
+@@ -3343,7 +3343,7 @@
+             return 0;
+         }
+         if (__atomic_compare_exchange_n(&re4SkinNext, &i, i + 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST)) {
+-            break;
++            if (re4SkinClaim(i)) break; i = __atomic_load_n(&re4SkinNext, __ATOMIC_SEQ_CST);  /* port (patch 0352): not one taken out of turn */
+         }
+     }
+     Re4SkinCursor c = {i, 0, 0, 0, 0, 0};
+@@ -3384,9 +3384,9 @@
+     }
+     const u32 c = re4SkinCount;
+     while (__atomic_load_n(&re4SkinDone, __ATOMIC_SEQ_CST) != c) {
+-        // the jobs others started (an atomic load a pass)
++        re4SkinWantGx();  /* port (patch 0352): the jobs others started (an atomic load a pass); the GX thread's own one asked for */
+     }
+-    re4SkinLate = 0;
++    re4SkinLazyEnd(c); re4SkinLate = 0;  /* port (patch 0352) */
+     __atomic_store_n(&re4SkinCount, 0, __ATOMIC_SEQ_CST);
+     __atomic_store_n(&re4SkinNext, 0, __ATOMIC_SEQ_CST);
+     __atomic_store_n(&re4SkinDone, 0, __ATOMIC_SEQ_CST);
+@@ -3405,7 +3405,7 @@
+                 jobs / 300, re4SkinPalCount / 300.0, vtx / 300, 100.0 * re4SkinStat[0][1] / v,
+                 100.0 * re4SkinStat[1][1] / v, 100.0 * re4SkinStat[2][1] / v, 100.0 * re4SkinStat[3][1] / v,
+                 re4SkinDirect / 300.0);
+-        memset(re4SkinStat, 0, sizeof(re4SkinStat));
++        re4SkinLazyLog(); memset(re4SkinStat, 0, sizeof(re4SkinStat));  /* port (patch 0352) */
+         re4SkinFrames = 0;
+         re4SkinPalCount = 0;
+         re4SkinDirect = 0;
+@@ -3607,3 +3607,217 @@
+     PSMTXInverse(mv, inv);
+     PSMTXTranspose(inv, specular_mat);
+ }
++
++/* PORT (patch 0352, plan 24 X2): the skinning jobs left after Render_done, taken by the GX thread at the draws that
++ * read their vertices and not all at the record after the picture (the fight's heavy frames: 9 ms of the GX thread
++ * there, while the first skinned vertex is read 11 ms later and the worker on core 3 has time for most of them).
++ * RE4_SKIN_LAZY: 0 as before, 1 lazy, 2 lazy and checked, 3 (the default) lazy while the GX thread holds.
++ * - a job has a state (free, taken, done), so one can be taken out of turn (re4SkinTake skips those);
++ * - the positions' array of an info -> its job (re4SkinDsts, this frame's by the stamp);
++ * - re4_skin_need(pos, gen), the GX thread before a draw reads its arrays: the job of that array done - nothing; free -
++ *   run there; taken by another thread - waited for;
++ * - the generation's end (re4SkinEnd, all jobs done, before the next frame's logic as before): re4SkinGenDone names it,
++ *   then the game waits until the GX thread is out of re4_skin_need (re4SkinGxIn; both sides SEQ_CST) and only then
++ *   clears the tables;
++ * - the GX thread's own job it gave way in is run to its end at the record after the picture, before another job at a
++ *   draw (the same scratch) and when the game asks (re4_skin_gx_wanted: the game waits at the generation's end).
++ * The same jobs, the same bits, the same deadline: only who computes them and when. */
++#include <stdint.h>
++namespace {
++u8 re4SkinState[kRe4SkinJobs];  // (atomic) 0 free, 1 taken, 2 done
++struct Re4SkinDst {
++    const void* dst;
++    u32 job, stamp;
++};
++const u32 kRe4SkinDsts = 512;
++Re4SkinDst re4SkinDsts[kRe4SkinDsts];
++u32 re4SkinStamp = 1;
++uintptr_t re4SkinLo = ~(uintptr_t) 0, re4SkinHi;  // the range of this frame's jobs' vertices
++u32 re4SkinGenDone;  // (atomic) the generations before it are done, their tables may be gone
++int re4SkinGxIn;     // (atomic) the GX thread reads the tables
++u32 re4SkinNeedStat[6];  // asked, done already, run there, waited for, -, misses (the GX thread counts)
++u32 re4SkinMissLogged;
++}  // namespace
++
++extern "C" {
++int re4_skin_lazy = -1;
++volatile int re4_skin_gx_wanted;
++int re4_skin_need(const void* pos, unsigned gen);
++void re4_skin_gx_own(void);
++}
++
++static int re4SkinClaim(u32 i)
++{
++    u8 free = 0;
++    return __atomic_compare_exchange_n(&re4SkinState[i], &free, 1, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST);
++}
++
++static void re4SkinMarkDone(u32 i)
++{
++    __atomic_store_n(&re4SkinState[i], 2, __ATOMIC_SEQ_CST);
++}
++
++static void re4SkinLazyInit()
++{
++    const char* e = getenv("RE4_SKIN_LAZY");
++    re4_skin_lazy = e ? atoi(e) : 3;
++    re4_log("skin jobs at the draws (patch 0352, RE4_SKIN_LAZY %d): %s", re4_skin_lazy,
++            re4_skin_lazy == 3 ? "while the GX thread holds" : re4_skin_lazy == 2 ? "on, checked" : re4_skin_lazy ? "on" :
++            "off - all at the record after the picture");
++}
++
++// (the game, recording a job) a task's vertices; first: the info's positions' array
++static void re4SkinDstPut(void* dst, u32 n, int kind, int first)
++{
++    if (re4_skin_lazy <= 0) {
++        return;
++    }
++    const uintptr_t a = (uintptr_t) dst, end = a + (uintptr_t) n * (kind ? 3 : 6);
++    re4SkinLo = a < re4SkinLo ? a : re4SkinLo;
++    re4SkinHi = end > re4SkinHi ? end : re4SkinHi;
++    if (!first || kind) {
++        return;
++    }
++    for (u32 s = ((u32) a >> 2) * 0x9E3779B1u >> 23, k = 0; k < kRe4SkinDsts; k++, s++) {
++        Re4SkinDst& d = re4SkinDsts[s & (kRe4SkinDsts - 1)];
++        if (d.stamp != re4SkinStamp) {
++            d.dst = dst;
++            d.job = re4SkinCount;
++            d.stamp = re4SkinStamp;
++            return;
++        }
++    }
++}
++
++// (the game, re4SkinEnd) all c jobs of generation re4_skin_gen are done: the tables free once the GX thread is out
++static void re4SkinLazyEnd(u32 c)
++{
++    __atomic_store_n(&re4SkinGenDone, re4_skin_gen + 1, __ATOMIC_SEQ_CST);
++    while (__atomic_load_n(&re4SkinGxIn, __ATOMIC_SEQ_CST)) {
++    }
++    re4_skin_gx_wanted = 0;
++    memset(re4SkinState, 0, c);
++    re4SkinStamp++;
++    re4SkinLo = ~(uintptr_t) 0;
++    re4SkinHi = 0;
++}
++
++// (the game, waiting at re4SkinEnd) the GX thread's own job it gave way in: asked for
++static void re4SkinWantGx()
++{
++    if (re4_skin_lazy > 0 && !re4_skin_gx_wanted) {
++        re4_skin_gx_wanted = 1;
++    }
++}
++
++// (the GX thread) its own job it gave way in, to the end
++extern "C" void re4_skin_gx_own()
++{
++    if (re4SkinGxOn) {
++        re4SkinRun(re4SkinGx, re4SkinScratch[0], false);
++        re4SkinGxOn = 0;
++        re4SkinDoneJob(re4SkinGx.job, 0);
++    }
++}
++
++// the job a task of which writes the address, or -1 (RE4_SKIN_LAZY=2)
++static int re4SkinScan(uintptr_t a)
++{
++    const u32 c = __atomic_load_n(&re4SkinCount, __ATOMIC_SEQ_CST);
++    for (u32 j = 0; j < c; j++) {
++        const Re4SkinJob& job = re4SkinJobs[j];
++        for (u32 p = job.pal; p < job.pal + job.pals; p++) {
++            const Re4SkinPalTask& pt = re4SkinPals[p];
++            for (u32 t = pt.task; t < pt.task + pt.tasks; t++) {
++                const Re4SkinTask& k = re4SkinTasks[t];
++                const uintptr_t d = (uintptr_t) k.dst;
++                if (a >= d && a < d + (uintptr_t) k.n * (k.kind ? 3 : 6)) {
++                    return (int) j;
++                }
++            }
++        }
++    }
++    return -1;
++}
++
++// (the GX thread, the tables its to read) 0: not a job's array; 1: its job was done; 2: run here; 3: waited for
++static int re4SkinNeed(const void* pos)
++{
++    re4SkinNeedStat[0]++;
++    const uintptr_t a = (uintptr_t) pos;
++    if (a < re4SkinLo || a >= re4SkinHi) {
++        return 0;
++    }
++    int j = -1;
++    for (u32 s = ((u32) a >> 2) * 0x9E3779B1u >> 23, k = 0; k < kRe4SkinDsts; k++, s++) {
++        const Re4SkinDst& d = re4SkinDsts[s & (kRe4SkinDsts - 1)];
++        if (d.stamp != re4SkinStamp) {
++            break;
++        }
++        if (d.dst == pos) {
++            j = (int) d.job;
++            break;
++        }
++    }
++    if (j < 0) {
++        if (re4_skin_lazy != 2) {
++            return 0;
++        }
++        j = re4SkinScan(a);  // checked: another way into a job's vertices than its positions' array
++        if (j < 0) {
++            return 0;
++        }
++        if (__atomic_load_n(&re4SkinState[j], __ATOMIC_SEQ_CST) != 2) {
++            re4SkinNeedStat[5]++;
++            if (re4SkinMissLogged++ < 20) {
++                re4_log("skin lazy: MISS - an array at %p inside the vertices of job %d (not done), not its positions' "
++                        "array", pos, j);
++            }
++        } else {
++            return 1;
++        }
++    }
++    if (__atomic_load_n(&re4SkinState[j], __ATOMIC_SEQ_CST) == 2) {
++        re4SkinNeedStat[1]++;
++        return 1;
++    }
++    re4_skin_gx_own();  // first (the same scratch)
++    if (re4SkinClaim((u32) j)) {
++        Re4SkinCursor c = {(u32) j, 0, 0, 0, 0, 0};
++        re4SkinRun(c, re4SkinScratch[0], false);
++        re4SkinDoneJob((u32) j, 0);
++        re4SkinNeedStat[2]++;
++        return 2;
++    }
++    while (__atomic_load_n(&re4SkinState[j], __ATOMIC_SEQ_CST) != 2) {
++        // another thread has it (an atomic load a pass)
++    }
++    re4SkinNeedStat[3]++;
++    return 3;
++}
++
++// (the GX thread, before a draw reads its arrays) -1: the generation's jobs are all done (no more calls for it)
++extern "C" int re4_skin_need(const void* pos, unsigned gen)
++{
++    if ((int) (__atomic_load_n(&re4SkinGenDone, __ATOMIC_SEQ_CST) - gen) > 0) {
++        return -1;
++    }
++    __atomic_store_n(&re4SkinGxIn, 1, __ATOMIC_SEQ_CST);
++    int r = -1;
++    if ((int) (__atomic_load_n(&re4SkinGenDone, __ATOMIC_SEQ_CST) - gen) <= 0) {
++        r = re4SkinNeed(pos);
++    }
++    __atomic_store_n(&re4SkinGxIn, 0, __ATOMIC_SEQ_CST);
++    return r;
++}
++
++static void re4SkinLazyLog()
++{
++    if (re4_skin_lazy > 0) {
++        const u32* s = re4SkinNeedStat;
++        re4_log("skin jobs at the draws (RE4_SKIN_LAZY %d; per frame, 300 frames): %.1f asked, %.1f done already, %.1f "
++                "run by the GX thread there, %.1f waited for; %u misses",
++                re4_skin_lazy, s[0] / 300.0, s[1] / 300.0, s[2] / 300.0, s[3] / 300.0, s[5]);
++        memset(re4SkinNeedStat, 0, sizeof(re4SkinNeedStat));
++    }
++}

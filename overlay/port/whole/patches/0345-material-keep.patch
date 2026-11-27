@@ -1,0 +1,249 @@
+# Port patch 0345 (2026-11-22; docs/23 C1): a part of the plain material
+# class leaves out shaderSetup's GX calls (texgen 0, TEV stages 0 and 1, the counts) when the words they would write
+# are the ones kept after the last such setup with the same colour scale; only its texture is bound.
+# RE4_MAT_KEEP=0: as before.
+diff -ruN -x '*.orig' a/src/game/trans.cpp b/src/game/trans.cpp
+--- a/src/game/trans.cpp	2026-11-22 22:53:05.025545251 +0900
++++ b/src/game/trans.cpp	2026-11-22 22:53:05.135374683 +0900
+@@ -1346,7 +1346,7 @@
+ // or cast-shadow stages, the material (texture, blends), specular / bump (part flags), global
+ // illumination (be_flag 0x01000000), the alpha texture (part flags 4), and the colour scale of
+ // the model's TevScaleGroup (gxCsScale).
+-void shaderSetup(cModel* m, cModelInfo* info, cPolyHeader* part, Mtx mv)
++static int re4MatFast(cModel* m, cModelInfo* info, cPolyHeader* part); static void re4MatEnd(); static int re4MatPend; void shaderSetup(cModel* m, cModelInfo* info, cPolyHeader* part, Mtx mv)  /* port (patch 0345): the material kept (end of the file) */
+ {
+     int selfDone;
+     int st;
+@@ -1360,7 +1360,7 @@
+         RefractShaderSetup(m, info, part, mv);
+         return;
+     }
+-    ISET0(tev_stage);
++    if (re4MatFast(m, info, part)) return; ISET0(tev_stage);  /* port (patch 0345) */
+     ISET0(tev_reg);
+     ISET0(tev_kcolor);
+     ISET0(tex_map);
+@@ -1447,7 +1447,7 @@
+     GXSetTevAlphaOp(st, 0, 0, 0, 1, 0);
+     GXSetNumTevStages(++tev_stage);
+     GXSetNumTexGens(IRef(tex_coord));
+-    GXSetNumIndStages(IRef(ind_stage));
++    GXSetNumIndStages(IRef(ind_stage)); if (re4MatPend) re4MatEnd();  /* port (patch 0345) */
+ }
+ 
+ // Load the blend table's texture for `part` (tbl: [0] count, [4 + 2i] part texture id or 0xF7, [5 + 2i] texture id).
+@@ -3480,3 +3480,84 @@
+     GXSetDstAlpha(0, 0);
+     GXSetChanCtrl(0, 0, 0, 0, 0, 0, 2);
+ }
++
++/* PORT (patch 0345, C1 of the 3DS deep optimisation): a part of the plain material class (no thermo / refraction /
++ * shadows / specular / bump / global illumination / alpha texture / texture matrix / blend) gets the same 14 GX calls
++ * from shaderSetup but for the colour scale: texgen 0, TEV stages 0 and 1, the three counts. After such a setup the
++ * words it left are kept (re4_gx_mat_keep, GXAttr.c); the next plain part with the same scale that finds the same
++ * words (re4_gx_mat_same) only binds its texture and sets the allocation counters as the setup leaves them.
++ * RE4_MAT_KEEP=0: always the calls. */
++extern "C" int re4_gx_mat_same(u32 key);
++extern "C" void re4_gx_mat_keep(u32 key);
++extern "C" int re4_gx_mat_check(u32 key, int counters);
++
++static int re4MatFast(cModel* m, cModelInfo* info, cPolyHeader* part)
++{
++    int scale;
++    ModelTexInfo* t;
++    u8 texId;
++
++    re4MatPend = 0;
++    if ((StaFlagChk(pG, STA_SELF_SHADOW) && isSelfUse) || g_pShdMng != 0 || (part->flag & 0x97) ||
++        (m->be_flag & 0x01000000)) {
++        return 0;
++    }
++    t = MODEL_TEX(info);
++    if (t->flags & 5) {
++        return 0;
++    }
++    switch (m->TevScaleGroup) {
++    case 0:
++    case 1:
++        scale = gxCsScale[m->TevScaleGroup];
++        if (scale > 2) {
++            return 0;
++        }
++        break;
++    case 4:
++        scale = 0;
++        break;
++    case 5:
++        scale = 1;
++        break;
++    case 6:
++        scale = 2;
++        break;
++    default:
++        return 0;
++    }
++    switch (re4_gx_mat_same((u32) scale)) {
++    case 0:
++        re4MatPend = scale + 1;  /* the whole setup now; its words kept at its end */
++        return 0;
++    case 2:
++        re4MatPend = -(scale + 1);  /* RE4_MAT_KEEP=3: the whole setup, checked at its end against what was kept */
++        return 0;
++    }
++    texId = part->material_tex;
++    if ((t->flags & 2) && t->anim != 0) {
++        u8* tbl = t->anim + 4;
++        texId = tbl[t->frame];
++    }
++    IV(tev_stage) = 2;
++    ISET0(tev_reg);
++    ISET0(tev_kcolor);
++    IV(tex_map) = 1;
++    IV(tex_coord) = 1;
++    ISET0(ind_stage);
++    g_material_tex_coord = 0;
++    org_LoadTexObj(texId, 0);
++    return 1;
++}
++
++static void re4MatEnd()
++{
++    const int plain = IV(tev_stage) == 2 && IV(tev_reg) == 0 && IV(tev_kcolor) == 0 && IV(tex_map) == 1 &&
++                      IV(tex_coord) == 1 && IV(ind_stage) == 0 && g_material_tex_coord == 0;
++    if (re4MatPend < 0) {
++        re4_gx_mat_check((u32) (-re4MatPend) - 1, plain);
++    } else if (plain) {  /* kept only when the setup left the counters of the plain class */
++        re4_gx_mat_keep((u32) re4MatPend - 1);
++    }
++    re4MatPend = 0;
++}
+diff -ruN -x '*.orig' a/src/lib/GXAttr.c b/src/lib/GXAttr.c
+--- a/src/lib/GXAttr.c	2026-11-22 22:53:05.006188572 +0900
++++ b/src/lib/GXAttr.c	2026-11-22 22:53:05.135821515 +0900
+@@ -530,7 +530,7 @@
+     GX_WRITE_U8(0x48);
+ }
+ 
+-void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc src_param, u32 mtx, GXBool normalize, u32 pt_texmtx) {
++static u32 re4TexGen[8][2]; /* port (patch 0345): XF 0x1040+ / 0x1050+ as written last */ void GXSetTexCoordGen2(GXTexCoordID dst_coord, GXTexGenType func, GXTexGenSrc src_param, u32 mtx, GXBool normalize, u32 pt_texmtx) {
+     u32 reg = 0;
+     u32 row;
+     u32 bumprow;  // unused
+@@ -613,11 +613,11 @@
+         break;
+     }
+ 
+-    GX_WRITE_XF_REG(dst_coord + 0x40, reg);
++    GX_WRITE_XF_REG(dst_coord + 0x40, reg); re4TexGen[dst_coord & 7][0] = reg;  /* port (patch 0345) */
+     reg = 0;
+     SET_REG_FIELD(1132, reg, 6, 0, pt_texmtx - 64);
+     SET_REG_FIELD(1133, reg, 1, 8, normalize);
+-    GX_WRITE_XF_REG(dst_coord + 0x50, reg);
++    GX_WRITE_XF_REG(dst_coord + 0x50, reg); re4TexGen[dst_coord & 7][1] = reg;  /* port (patch 0345) */
+ 
+     switch (dst_coord) {
+     case GX_TEXCOORD0: SET_REG_FIELD(1147, __GXData->matIdxA, 6, 6, mtx);  break;
+@@ -694,3 +694,103 @@
+     re4VtxRead(re4VtxWords);
+     re4VtxValid = 1;
+ }
++
++/* port (patch 0345, C1): the plain material of game/trans.cpp shaderSetup - texgen 0, TEV stages 0 and 1 and the
++   three counts - depends on a key (the colour scale) only. re4_gx_mat_keep stores the key and the words its calls
++   left: the TEV words of __GXData, the counts' fields of genMode (XF 0x103F is written with its field only), texcoord
++   0's matrix field and the texgen registers (re4TexGen: GXSetTexCoordGen2 alone writes them). re4_gx_mat_same says
++   whether the next part with that key finds the same words; then it leaves its calls out: from the same words they
++   give the same words, and the registers either hold them or a dirty bit still says they will be written.
++   RE4_MAT_KEEP=0: always the calls. Not while display lists carry register commands (3DS). */
++void re4_log(const char* fmt, ...);
++static int re4MatOn = -1;
++static int re4MatValid;
++static u32 re4MatKey, re4MatWords[12];
++
++static void re4MatRead(u32* w)
++{
++    w[0] = __GXData->tevc[0];
++    w[1] = __GXData->teva[0];
++    w[2] = __GXData->tevc[1];
++    w[3] = __GXData->teva[1];
++    w[4] = __GXData->tref[0];
++    w[5] = __GXData->texmapId[0];
++    w[6] = __GXData->texmapId[1];
++    w[7] = __GXData->tevTcEnab & 3;
++    w[8] = __GXData->genMode & (0xFu | 0xFu << 10 | 7u << 16);
++    w[9] = __GXData->matIdxA & (0x3Fu << 6);
++    w[10] = re4TexGen[0][0];
++    w[11] = re4TexGen[0][1];
++}
++
++static u32 re4MatN, re4MatHit, re4MatBad;
++
++static int re4MatEq(u32 key)
++{
++    u32 w[12];
++    int i;
++
++    if (!re4MatValid || key != re4MatKey) {
++        return 0;
++    }
++    re4MatRead(w);
++    for (i = 0; i < 12; i++) {
++        if (w[i] != re4MatWords[i]) {
++            return 0;
++        }
++    }
++    return 1;
++}
++
++/* 0: the whole setup, then re4_gx_mat_keep; 1: the calls left out; 2 (RE4_MAT_KEEP=3, the check): the whole setup,
++   then re4_gx_mat_check. RE4_MAT_KEEP=2 and 3 count the plain parts and those kept to the log. */
++int re4_gx_mat_same(u32 key)
++{
++    int r;
++
++    if (re4MatOn < 0) {
++        const char* e = getenv("RE4_MAT_KEEP");
++        re4MatOn = e ? atoi(e) : 1;
++    }
++    if (!re4MatOn) {
++        return 0;
++    }
++    r = re4MatEq(key);
++#if defined(__3DS__)
++    if (re4_gxq_list_regs) {
++        r = 0;
++    }
++#endif
++    if (re4MatOn > 1) {
++        re4MatHit += r;
++        if (!(++re4MatN & 0x3FFF)) {
++            re4_log("material keep (patch 0345): %u plain parts, %u kept, %u failed the check", re4MatN, re4MatHit,
++                    re4MatBad);
++        }
++        if (r && re4MatOn == 3) {
++            return 2;
++        }
++    }
++    return r;
++}
++
++/* the check: the whole setup ran where the calls would have been left out - the words and the counters must be
++   the ones the short way leaves */
++int re4_gx_mat_check(u32 key, int counters)
++{
++    if (!re4MatEq(key) || !counters) {
++        if (re4MatBad++ < 16) {
++            re4_log("material keep (patch 0345): the check failed, key %u, words %d, counters %d", key, re4MatEq(key),
++                    counters);
++        }
++        return 0;
++    }
++    return 1;
++}
++
++void re4_gx_mat_keep(u32 key)
++{
++    re4MatKey = key;
++    re4MatRead(re4MatWords);
++    re4MatValid = 1;
++}

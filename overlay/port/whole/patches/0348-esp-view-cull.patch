@@ -1,0 +1,25 @@
+# The 3DS port (plan 24, branch G, finding 1 of docs/reviews/2026-11-24-gpu.md): EspTrans leaves out a plain sprite
+# (EspCommonTrans) that is wholly outside the camera's view this frame, as it leaves out one the Potato mode does not
+# draw (patch 0149, the same place): re4_esp_outside, port/whole/runtime/potato.cpp (RE4_ESP_VIEWCULL; 0 off). The
+# sprite's life and logic go on; the sprite batches (0339) are not cut by it. The same lines. A port patch.
+diff -ruN a/src/game/esp.cpp b/src/game/esp.cpp
+--- a/src/game/esp.cpp	2026-11-24 23:53:07.983729311 +0900
++++ b/src/game/esp.cpp	2026-11-24 23:53:08.249014627 +0900
+@@ -10,7 +10,7 @@
+ #include "esp.h"
+ #include "espgen.h"
+ 
+-extern "C" int re4_esp_skip(cEsp* esp); /* port: runtime/potato.cpp (patch 0149) */
++extern "C" int re4_esp_skip(cEsp* esp); /* port: runtime/potato.cpp (patch 0149) */ extern "C" int re4_esp_outside(cEsp* esp, int common); /* port: runtime/potato.cpp (patch 0348) */
+ 
+ // number of live effects per owner id (debug display)
+ u16 esp_num_list[EFF_MAX];
+@@ -350,7 +350,7 @@
+         }
+         /* port (patch 0149): the app menu's Potato mode leaves the expensive surroundings effects undrawn
+            (runtime/potato.cpp: weather effects, special effects); also the effect census of the checks */
+-        if (re4_esp_skip(esp)) {
++        if (re4_esp_skip(esp) || re4_esp_outside(esp, trans == EspCommonTrans)) {  /* port (0348): or wholly outside the view */
+             continue;
+         }
+         if (esp->info.Core_flg & 0x400) {

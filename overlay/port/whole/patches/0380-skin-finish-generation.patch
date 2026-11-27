@@ -1,0 +1,18 @@
+# Port patch 0380 (2026-11-26, the GX split's stand hang): re4_skin_finish (patch 0325, the GX thread) also ends its
+# wait for the skinning jobs when the generation has moved on - the game's re4SkinEnd resets the counters only after
+# all of that generation's jobs are done; before, a reset between the GX thread's reads left it waiting for a count
+# the next generation never reaches (the game waiting for the GX thread: all stands). Same lines.
+diff -ruN a/src/game/trans.cpp b/src/game/trans.cpp
+--- a/src/game/trans.cpp	2026-11-26 18:17:50.794772894 +0900
++++ b/src/game/trans.cpp	2026-11-26 18:17:50.932164389 +0900
+@@ -3371,8 +3371,8 @@
+ {
+     while (re4SkinTake(0, false)) {
+     }
+-    const u32 c = __atomic_load_n(&re4SkinCount, __ATOMIC_SEQ_CST);
+-    while (__atomic_load_n(&re4SkinDone, __ATOMIC_SEQ_CST) != c) {
++    const u32 g = __atomic_load_n(&re4_skin_gen, __ATOMIC_SEQ_CST); const u32 c = __atomic_load_n(&re4SkinCount, __ATOMIC_SEQ_CST);  /* port (patch 0380): the generation first */
++    while (__atomic_load_n(&re4SkinDone, __ATOMIC_SEQ_CST) != c && __atomic_load_n(&re4_skin_gen, __ATOMIC_SEQ_CST) == g) {  /* port (patch 0380): re4SkinEnd may have seen them all done and reset the counters */
+         // the job the game took while it waits (an atomic load a pass)
+     }
+ }

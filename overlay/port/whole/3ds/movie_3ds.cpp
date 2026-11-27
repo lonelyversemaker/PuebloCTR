@@ -178,6 +178,12 @@ void report(const char* what)
             (unsigned) gSkippedFrames, (unsigned) gLate, (double) soundTime() / kRate);
 }
 
+// (2026-11-27) the D-pad weapons' files: their room given back for a movie (its buffers want linear memory in one
+// piece: with the room taken, the intro's picture had no room - 208 KB the largest piece), taken again after it
+extern "C" void* re4_dvd_weapon_arena_off(unsigned* size);  // runtime/dvd.cpp
+extern "C" void re4_dvd_weapon_arena(void* room, unsigned size);
+extern "C" unsigned re4_3ds_weapon_room_bytes(void);  // setup_3ds.cpp: the room wanted now (weapons on the arrows)
+
 void release()
 {
     if (gSoundOn) {
@@ -206,6 +212,21 @@ void release()
     gNal = nullptr;
     gPcm = nullptr;
     reserveTake();  // (R2b) for the next movie
+    const unsigned want = re4_3ds_weapon_room_bytes();
+    if (want) {  // (2026-11-27) the weapon files' room (again, or the first time: weapons on the arrows now): linear
+        // memory in one piece made as for a movie (the oldest textures dropped - made again when drawn), then half of
+        // it; none: read from the card as before. No weapon on the arrows: the room stays the textures'
+        void* room = nullptr;
+        unsigned bytes = want;
+        for (int t = 0; t < 2 && !room; t++) {
+            bytes = want >> t;
+            re4_3ds_gx_movie_room(bytes, bytes);
+            room = linearAlloc(bytes);
+        }
+        bytes = room ? bytes : 0;
+        re4_dvd_weapon_arena(room, bytes);
+        re4_log("movie: the weapon files' room %s (%u KB of %u)", room ? "taken" : "NOT taken", bytes >> 10, want >> 10);
+    }
     if (gReserveBytes && !gReserve) {
         re4_log("movie: the work room (%u KB) not taken back after the movie", (unsigned) gReserveBytes >> 10);
     }
@@ -250,6 +271,10 @@ int hwOpen(const char* fname)
     gSound = fopen(path, "rb");
     if (gSound) {
         setvbuf(gSound, nullptr, _IOFBF, 32 << 10);
+    }
+    unsigned wepBytes = 0;
+    if (void* room = re4_dvd_weapon_arena_off(&wepBytes)) {  // (2026-11-27) the weapon files' room given back
+        linearFree(room);
     }
     const u32 linearBefore = linearSpaceFree();
     MVDSTD_CalculateWorkBufSizeConfig calc;

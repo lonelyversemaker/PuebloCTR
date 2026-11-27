@@ -25,20 +25,25 @@ everything the port needs from images of your discs.
   Circle Pad. On by default at 2x; the strength (1x to 4x) or off is chosen on the settings screen.
 - **The whole bottom screen is used** during play:
   - the health of both characters with live heartbeat lines, the ammo of the current weapon and the money;
-  - **CASE** and **MAP** buttons: open the attache case or the full map with one tap;
   - a **navigable map** of the area: your position and direction, the current objective, typewriters and merchants,
     treasures and blue medallions still to find; separate floors; **+ / -** to zoom, a button to jump back to you, and
-    drag it with a finger to look around.
-- **A settings screen** before you play (bottom screen): cheats one by one (infinite health, infinite ammo, one-hit
-  kills, automatic button prompts, +1,000,000 pesetas), the gyro, the Circle Pad's sensitivity and dead zone, your
-  own button mapping, the picture's fit to the screen (with or without black bars) and a frame counter.
+    drag it with a finger to look around;
+  - **the attache case** in place of the map, one tap away, while the game keeps running: tap a weapon to take it in
+    hand, a herb or a spray to heal; **EDIT** to move, rotate, combine and discard items by touch, with a tray to put
+    things aside;
+  - **four weapons on the D-pad**: one weapon on each arrow, chosen by tapping its cell.
+- **A settings screen** on the bottom screen, before you play and during play (the gear button or START): cheats one by
+  one (infinite health, infinite ammo, one-hit kills, automatic button prompts, every weapon at the merchant,
+  +1,000,000 pesetas), the gyro, the Circle Pad's sensitivity and dead zone, your own button mapping, the picture's fit
+  to the screen (with or without black bars), the HUD of the top screen on or off, the bottom screen's language and a
+  frame counter.
 - **The original movies** play through the console's hardware H.264 decoder, with sound; the European and the Japanese
   subtitles show as on the GameCube.
 - **Made for the New 3DS hardware**: a renderer on its PICA200 GPU, sound on its DSP, the game, the renderer and the
   animation work on separate CPU cores at 804 MHz, a texture pack prepared for the 3DS GPU for smoother loading.
 - **European, US and Japanese discs**; the European ones in five languages (English, French, German, Spanish, Italian -
   taken from the console's system language), the Japanese ones in Japanese, with the gore of the US release; the bottom
-  screen follows the game's language.
+  screen follows the game's language or the one you choose, simplified Chinese too.
 - **Your saves**: bring GameCube saves from Dolphin or a memory card (`.gci` / `.gcs`) with PuebloPrep.
 - **Easy setup**: PuebloPrep (Windows, macOS, Linux) makes everything from your own disc images - ISO, GCM or Dolphin's
   RVZ - in one go; install as a CIA (HOME Menu icon and banner) or a `.3dsx`.
@@ -123,7 +128,9 @@ PuebloPrep finds `/usr/bin/ffmpeg` and anything on the PATH.
 3. **Disc 1 image**, **Disc 2 image**: click **Browse...** and choose your two images.
 4. **Output folder**: where PuebloPrep makes the files for the SD card. By default a new folder `PuebloCTR-SD` next
    to the program - fine to keep. Nothing is written to the SD card directly.
-5. **Texture pack** (about 350 MB): keep it ticked. Without it the game stutters whenever new textures appear.
+5. **Textures**: keep **Pack and list** (about 350 MB). It makes the texture pack and the list of textures the game
+   reads ahead; without them the game stutters whenever new textures appear. **List only** is for an update: it adds
+   just the list (`textures.pre`) next to a pack you already have, in under a minute.
 6. **Movies** (about 220 MB): keep it ticked, and look at the line under the **ffmpeg** field:
    - green **"ffmpeg works, with libx264"** - all set;
    - red **"ffmpeg not found"** - go back to step 2, or choose `ffmpeg` / `ffmpeg.exe` with **Browse...** (choosing
@@ -144,6 +151,7 @@ The output folder then holds a folder `3ds`, laid out like this:
 ```
 3ds/pueblo/data/disc0, disc1    the discs' files
 3ds/pueblo/textures.pak         the textures, made for the 3DS GPU
+3ds/pueblo/textures.pre         the list of textures read ahead
 3ds/pueblo/movie/               the movies (H.264)
 3ds/pueblo/saves/memcard.bin    the memory card (only if you imported saves)
 ```
@@ -187,10 +195,16 @@ any other language gives English). To play in another one, change the system lan
 starting. The US discs are in English, the Japanese ones in Japanese. The Japanese discs play with the gore of the
 US release (the original Japanese release cut it).
 
-**The settings screen** is on the bottom screen while the game is at its title. It has three tabs - CHEATS,
-CONTROLS and SCREEN; tap a tab to open it and a row to change it:
+**The bottom screen's text** follows the game's language too, and has a seventh one the discs do not: simplified
+Chinese, on a console whose system language is Chinese (the game itself stays English then - the discs have no
+Chinese text). To choose its language yourself, use SCREEN -> **Bottom screen language** on the settings screen.
 
-- **CHEATS**: infinite health, infinite ammo, one-hit kills, automatic button prompts (QTEs), +1,000,000 pesetas once;
+**The settings screen** is on the bottom screen while the game is at its title, and during play when you open the
+game's options (the gear button on the bottom screen, or START). It has three tabs - SCREEN, CONTROLS and CHEATS; tap a
+tab to open it and a row to change it:
+
+- **CHEATS**: infinite health, infinite ammo, one-hit kills, automatic button prompts (QTEs), every weapon at the
+  merchant (offered at each visit, at the game's prices); **+1,000,000 pesetas** is a button (GET), once per tap;
 - **CONTROLS**:
   - **Gyro aim** (on at 2x by default): while you hold R to aim (or L to ready the knife), turning the console turns the aim too; the arrows set
     how strongly, down to off;
@@ -201,15 +215,18 @@ CONTROLS and SCREEN; tap a tab to open it and a row to change it:
     aim or Leon creeps on its own while you don't touch the pad;
   - **Button mapping**: any game action on any button or a combination of two (also the Circle Pad's and the C-Stick's
     directions); **Quick turn** puts the 180-degree turn on one button. Tap an action, then press the button(s);
-    SELECT clears it; **Reset to defaults** brings back the table below;
+    SELECT clears it; **Reset to defaults** brings back the table below; **Weapon up / down / left / right** put
+    the D-pad weapons on other buttons;
 - **SCREEN**:
   - **Picture**: **Fit** (by default) shows the whole picture with black bars at the sides, as the game made it;
     **Stretch** fills the screen by widening the picture a little; **Zoom** fills it keeping the shape, cutting a
     little off the top and bottom. The change shows at once on the title screen;
+  - **Hide HUD on top screen**: no life meter and ammo on the top screen (the bottom screen shows them);
+  - **Bottom screen language**: Auto (the game's) or one of the seven;
   - **Frame counter** in the corner of the game screen.
 
-The choices apply when a game starts or loads, and are kept on the SD card (`/3ds/pueblo/settings.bin`). The version
-of your build is in the top right corner of this screen.
+At the title the choices apply when a game starts or loads; during play they apply at once. They are kept on the SD
+card (`/3ds/pueblo/settings.bin`). The version of your build is in the top right corner of this screen.
 
 **Controls** (by default, as the GameCube controller; change them under CONTROLS -> Button mapping):
 
@@ -225,8 +242,20 @@ of your build is in the top right corner of this screen.
 | START | START |
 | START + SELECT, held for a second | quit PuebloCTR (back to the HOME Menu) |
 
-**During the game** the bottom screen shows the health, the ammo and the money, and a map of the area: tap **CASE** or
-**MAP** to open them, the map's **+ / -** buttons to zoom, and drag it with a finger to look around.
+**During the game** the bottom screen shows the health, the ammo and the money, and a map of the area: the map's
+**+ / -** buttons zoom, and a finger drags it to look around. Along the bottom:
+
+- **the four D-pad cells**: the weapon on each arrow of the D-pad. Tap a cell to choose its weapon from yours; in the
+  game, press that arrow to take it in hand;
+- **the case button**: switches the map and **the attache case**. The game keeps running. Tap a weapon to take it in
+  hand, a herb or a spray to heal (when Leon is free). **EDIT** (next to the life bars) arranges the case: tap an item
+  to select it, drag it to move it (green - it fits, gold - it combines with the item under it, red - not there), drop
+  it onto another to combine them (ammo onto its weapon reloads it); the buttons at the bottom rotate the selected item
+  or discard it (after a Yes / No; never the weapon in your hands). While you edit, a tray replaces the life bars: drag
+  items up onto it to put them aside, down again to put them back - it is the spare space of the game's own case. The
+  first time a version starts, it draws the items' pictures once (a progress bar on the bottom screen). Y still opens
+  the game's own case;
+- **the gear**: the game's options and the settings screen.
 
 HOME and closing the lid work as usual. **Save in the game** before you quit; PuebloCTR writes the memory card to the
 SD card right after the game saves.
@@ -246,7 +275,8 @@ SD card right after the game saves.
 2. Install the new `PuebloCTR.cia` with FBI over the old one - scanning the [QR code](#step-5-install-the-game) again
    is enough (or replace `PuebloCTR.3dsx`).
 3. The release notes say when the files from PuebloPrep must be made again; otherwise keep them. The start check says
-   so too ("The texture pack does not fit this version").
+   so too ("The texture pack does not fit this version"). For a new list of textures read ahead (`textures.pre`) alone,
+   run PuebloPrep with **Textures: List only** on your output folder and copy that one file to `/3ds/pueblo/`.
 
 ## Troubleshooting
 
@@ -339,7 +369,7 @@ tools/make_tree.py               submodule + overlay + patch -> build/tree
 tools/minimap_gen.py             the map screen's rules, read from the game's source at build time
 tools/ui_assets.py               the bottom screen's pictures and strings -> overlay/.../3ds/ui_assets.h (committed)
 tools/cia_assets.py              the icon, the banner and its sound -> overlay/port/whole/3ds/cia/ (committed)
-tools/fetch_fonts.sh             the Noto Serif JP faces those two draw with (only needed to change them)
+tools/fetch_fonts.sh             the Noto Serif JP and SC faces those two draw with (only needed to change them)
 ```
 
 `tools/build.sh` makes `build/tree` first; to change the port, edit the tree, then carry the change back into

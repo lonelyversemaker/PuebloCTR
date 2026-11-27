@@ -960,6 +960,171 @@ void scanKeys(const std::string& data, const std::string& outPath)
     say("scan: %llu images, %llu keys -> %s", (unsigned long long) images, (unsigned long long) keys, outPath.c_str());
 }
 
+// --- textures.pre (2026-11-24): the console reads a disc file's textures from the pack ahead as the game opens the file
+// (gx_3ds.cpp, RE4_3DS_TEXPRELOAD). The order (texpre_order.inc, from stage97_prelist_rooms.py): each file's
+// images as the European disc's room tour showed them first - by ordinal, levels, format and size, no keys; the keys
+// here from this disc's texels, as the pack's. An image of another shape at that ordinal (another edition's): left out.
+// The file: "RPL1", version 1, files, keys (u32 each, little-endian); {u32 FNV-1a 32 of the path below files/ in
+// lower case, first, count} per file by the hash; u64 keys.
+struct PreOrder {
+    const char* rel;    // below files/, lower case (the console's runtime/dvd.cpp re4_dvd_open_fn)
+    const char* name;   // the image's file as forEachFile names it
+    const char* items;  // "ordinal.levels.format.width.height ..."
+};
+const PreOrder kPreOrder[] = {
+#include "texpre_order.inc"
+};
+const size_t kPreRows = sizeof(kPreOrder) / sizeof(kPreOrder[0]);
+std::vector<std::vector<u64>> gPreKeys;           // per row of kPreOrder
+std::vector<std::pair<std::string, size_t>> gPreByName;  // (name, row) by name
+u64 gPreOther;                                    // images left out: another shape there
+
+void preStart()
+{
+    gPreKeys.assign(kPreRows, {});
+    gPreByName.clear();
+    for (size_t r = 0; r < kPreRows; r++) {
+        gPreByName.emplace_back(kPreOrder[r].name, r);
+    }
+    std::sort(gPreByName.begin(), gPreByName.end());
+    gPreOther = 0;
+}
+
+void preCollect(const std::string& name, const std::vector<u8>& d, const std::vector<TexImage>& ims)
+{
+    auto it = std::lower_bound(gPreByName.begin(), gPreByName.end(), std::make_pair(name, (size_t) 0));
+    for (; it != gPreByName.end() && it->first == name; ++it) {
+        std::vector<u64>& out = gPreKeys[it->second];
+        const char* p = kPreOrder[it->second].items;
+        unsigned o, l, f, w, h;
+        int used = 0;
+        while (sscanf(p, "%u.%u.%u.%u.%u%n", &o, &l, &f, &w, &h, &used) == 5) {
+            p += used;
+            if (o < ims.size() && ims[o].format == f && ims[o].width == w && ims[o].height == h) {
+                const u64 key = texKey(d, ims[o], l);
+                if (key) {
+                    out.push_back(key);
+                }
+            } else {
+                gPreOther++;
+            }
+        }
+    }
+}
+
+u32 preHash(const char* s)
+{
+    u32 h = 0x811C9DC5u;
+    for (; *s; s++) {
+        h = (h ^ (u8) *s) * 0x01000193u;
+    }
+    return h;
+}
+
+void putLe(std::vector<u8>& b, u64 v, int bytes)
+{
+    for (int i = 0; i < bytes; i++) {
+        b.push_back((u8) (v >> (8 * i)));
+    }
+}
+
+void preWrite(const std::string& path)
+{
+    // each file's keys in the rows' order, once; files by their hash (alike hashes: one list)
+    std::vector<std::pair<u32, std::vector<u64>>> files;
+    std::vector<std::string> rels;
+    for (size_t r = 0; r < kPreRows; r++) {
+        const u32 h = preHash(kPreOrder[r].rel);
+        size_t at = 0;
+        while (at < files.size() && files[at].first != h) {
+            at++;
+        }
+        if (at == files.size()) {
+            files.push_back({h, {}});
+        }
+        std::vector<u64>& ks = files[at].second;
+        for (u64 k : gPreKeys[r]) {
+            if (std::find(ks.begin(), ks.end(), k) == ks.end()) {
+                ks.push_back(k);
+            }
+        }
+    }
+    files.erase(std::remove_if(files.begin(), files.end(), [](const auto& f) { return f.second.empty(); }), files.end());
+    std::sort(files.begin(), files.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+    std::vector<u8> b;
+    u64 keys = 0;
+    for (const auto& f : files) {
+        keys += f.second.size();
+    }
+    putLe(b, 0x314C5052u, 4);
+    putLe(b, 1, 4);
+    putLe(b, files.size(), 4);
+    putLe(b, keys, 4);
+    u64 first = 0;
+    for (const auto& f : files) {
+        putLe(b, f.first, 4);
+        putLe(b, first, 4);
+        putLe(b, f.second.size(), 4);
+        first += f.second.size();
+    }
+    for (const auto& f : files) {
+        for (u64 k : f.second) {
+            putLe(b, k, 8);
+        }
+    }
+    const std::string part = path + ".part";
+    gTemps.push_back(part);
+    FILE* o = fopen(part.c_str(), "wb");
+    if (!o || fwrite(b.data(), 1, b.size(), o) != b.size() || fclose(o) != 0) {
+        fail("cannot write %s (%s)", part.c_str(), strerror(errno));
+    }
+    remove(path.c_str());
+    if (rename(part.c_str(), path.c_str()) != 0) {
+        fail("cannot rename %s (%s)", part.c_str(), strerror(errno));
+    }
+    say("textures: %s - %zu files, %llu keys read ahead on the console (%llu images of another shape left out)",
+        path.c_str(), files.size(), (unsigned long long) keys, (unsigned long long) gPreOther);
+}
+
+// (--texture-list) textures.pre alone, the pack as it is: only the order's files read (some 400, not the whole disc)
+void makeTextureList(const std::string& data, const std::string& pueblo)
+{
+    preStart();
+    std::vector<std::string> names;
+    for (size_t r = 0; r < kPreRows; r++) {
+        names.push_back(kPreOrder[r].name);
+    }
+    std::sort(names.begin(), names.end());
+    names.erase(std::unique(names.begin(), names.end()), names.end());
+    size_t read = 0;
+    for (const std::string& name : names) {
+        const bool yz2 = name.rfind("yz2:", 0) == 0;
+        const std::string full = data + "/" + (yz2 ? name.substr(4) : name);
+        u64 have;
+        if (!fileSize(full, &have)) {
+            continue;  // (another edition: no such file)
+        }
+        std::vector<u8> d = readWhole(full);
+        if (yz2) {
+            std::string why;
+            d = unpackDas(d, &why);
+        }
+        if (d.empty()) {
+            continue;
+        }
+        preCollect(name, d, texImages(d));
+        if (++read % 100 == 0) {
+            say("textures: the list, %zu of %zu files", read, names.size());
+        }
+    }
+    u64 pak;
+    if (!fileSize(pueblo + "/textures.pak", &pak)) {
+        say("textures: no textures.pak in %s - the console reads the list only with the pack (choose the pack too)",
+            pueblo.c_str());
+    }
+    preWrite(pueblo + "/textures.pre");
+}
+
 // (--textures) the records of every distinct image of the disc (its key of 1 level) and an alias (RTXA, texpak.cpp)
 // for each other key the game may give it: 2 .. maxLOD + 1 levels (the TPL header's maxLOD bounds the levels the game
 // hashes - all 9857 keys of all-8 so, 2026-11-16)
@@ -975,7 +1140,8 @@ void fullRecords(const std::string& data, FILE* dump)
 {
     std::set<u64> written, aliased;
     u64 images = 0;
-    forEachFile(data, [&](const std::string&, const std::vector<u8>& d, const std::vector<TexImage>& ims) {
+    forEachFile(data, [&](const std::string& name, const std::vector<u8>& d, const std::vector<TexImage>& ims) {
+        preCollect(name, d, ims);  // (textures.pre)
         for (const TexImage& im : ims) {
             const u64 content = texKey(d, im, 1);
             if (!content) {
@@ -1276,6 +1442,7 @@ void makeTextures(const std::string& recipePath, const std::string& data, const 
         fail("cannot write %s (%s)", dumpPath.c_str(), strerror(errno));
     }
     if (recipePath.empty()) {  // (--textures: every image of the disc)
+        preStart();
         fullRecords(data, dump);
         rows.clear();
     }
@@ -1362,6 +1529,9 @@ void makeTextures(const std::string& recipePath, const std::string& data, const 
         fail("cannot rename %s (%s)", pakPart.c_str(), strerror(errno));
     }
     say("textures: %s", pak.c_str());
+    if (recipePath.empty()) {
+        preWrite(pueblo + "/textures.pre");
+    }
 }
 
 // --- The movies (Movie/*.sfd: Sofdec, MPEG-1 512x336 at 59.94 + ADX 32 kHz) for the New 3DS's H.264 decoder (MVD),
@@ -1539,7 +1709,8 @@ void usage()
            "  puebloprep-cli --in DISC1.iso --in DISC2.iso [--out DIR]      unpack to DIR/3ds/pueblo/data (DIR: PuebloCTR-SD)\n"
            "  puebloprep-cli --in DISC1.iso --in DISC2.iso --check DIR      compare a prepared folder with the images\n"
            "  puebloprep-cli --in DISC.iso --info                           what the image is\n"
-           "  ... --textures                                         also textures.pak (without --in: from the folder)\n"
+           "  ... --textures                                         also textures.pak and textures.pre (without --in: from the folder)\n"
+           "  ... --texture-list                                     textures.pre only (the list of textures read ahead; under a minute)\n"
            "  ... --movies [--ffmpeg PATH]                           also the movies (ffmpeg with libx264)\n"
            "  puebloprep-cli [--out DIR | --card CARD] --import-gci F.gci [--replace]  saves onto the card (DIR/3ds/pueblo/saves/memcard.bin)\n"
            "  puebloprep-cli [--out DIR | --card CARD] --export-gci DIR2 | --list-card the card's saves as .gci / what it holds\n"
@@ -1570,7 +1741,7 @@ extern "C" int puebloprep_run(int argc, char** argv)
 #endif
     std::vector<std::string> ins;
     std::string out = "PuebloCTR-SD", checkDir, recipe, ffmpeg = "ffmpeg";
-    bool info = false, movies = false, textures = false;
+    bool info = false, movies = false, textures = false, textureList = false;
     std::string card, exportGci;  // (R5: saves)
     std::vector<std::string> gcis;
     bool replace = false, listCard = false;
@@ -1594,6 +1765,8 @@ extern "C" int puebloprep_run(int argc, char** argv)
             replace = true;
         } else if (a == "--textures") {
             textures = true;
+        } else if (a == "--texture-list") {  // (textures.pre alone; --textures makes it too)
+            textureList = true;
         } else if (a == "--recipe" && i + 1 < argc) {  // (the textures of a recipe only: work/data/texture-recipe-v2.txt)
             recipe = argv[++i];
             textures = true;
@@ -1640,7 +1813,8 @@ extern "C" int puebloprep_run(int argc, char** argv)
         }
         return problems ? 1 : 0;
     }
-    if ((ins.empty() && ((!textures && !movies) || out.empty())) || (out.empty() && checkDir.empty() && !info)) {
+    if ((ins.empty() && ((!textures && !textureList && !movies) || out.empty())) ||
+        (out.empty() && checkDir.empty() && !info)) {
         usage();
         return 2;
     }
@@ -1690,6 +1864,8 @@ extern "C" int puebloprep_run(int argc, char** argv)
         }
         if (textures) {
             makeTextures(recipe, out + "/3ds/pueblo/data", out + "/3ds/pueblo");
+        } else if (textureList) {
+            makeTextureList(out + "/3ds/pueblo/data", out + "/3ds/pueblo");
         }
         if (movies) {
             makeMovies(out + "/3ds/pueblo/data", out + "/3ds/pueblo", ffmpeg);
@@ -1735,6 +1911,8 @@ extern "C" int puebloprep_run(int argc, char** argv)
     }
     if (textures) {
         makeTextures(recipe, data, root + "/3ds/pueblo");
+    } else if (textureList) {
+        makeTextureList(data, root + "/3ds/pueblo");
     }
     if (movies) {
         makeMovies(data, root + "/3ds/pueblo", ffmpeg);

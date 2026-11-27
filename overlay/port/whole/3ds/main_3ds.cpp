@@ -35,7 +35,10 @@ extern "C" size_t re4_log_file_pending(void);
 extern "C" void re4_3ds_settings_menu(void);  // settings_3ds.cpp (6.6): the menu before the game
 extern "C" void re4_3ds_console_font(PrintConsole* console);
 extern "C" void re4_3ds_hud_start(void);
+extern "C" void re4_3ds_icons_start(void);  // (2026-11-27) icons_3ds.cpp: the inventory's item pictures
 extern "C" void re4_3ds_movie_reserve(void);  // movie_3ds.cpp (R2b)
+extern "C" void re4_dvd_weapon_arena(void* room, unsigned size);  // runtime/dvd.cpp (2026-11-27)
+extern "C" unsigned re4_3ds_weapon_room_bytes(void);  // setup_3ds.cpp (2026-11-27)
 extern "C" void re4_3ds_crash_start(void);    // crash_3ds.cpp (R1)
 extern "C" int re4_3ds_check_system(void);    // startcheck_3ds.cpp (R3): the Old 3DS, the memory
 extern "C" int re4_3ds_check_data(void);      // the discs, the movies, the texture pack; the warnings
@@ -75,6 +78,12 @@ const char* const kDefaults[] = {
     "RE4_3DS_DSPTHREAD=1",
     "RE4_3DS_DSPTHREAD_CORE=1",
     "RE4_DSP_BEHIND=1",
+    // (2026-11-26) the sound: the stream's ARAM writes through the DSP lists' queue (the game does not wait for the DSP
+    // thread at a refill), the streams' file kept open, a new stream read ahead from its start (runtime/dsp.cpp, dvd.cpp);
+    // recording 16: refill frames +4.2 -> +1.5 ms, the game's heavy frames -0.5 ms. 0: as before
+    "RE4_SND_ARAMQ=1",
+    "RE4_DVD_STRPIN=1",
+    "RE4_DVD_STRHINT=3",
     "RE4_EVT_SNDSPEED=1",
     "RE4_DRAWDIST=70",
     "RE4_3DS_TEXMISS=0",
@@ -117,6 +126,12 @@ const char* const kDefaults[] = {
     "RE4_3DS_DSPTHREAD=1",
     "RE4_3DS_DSPTHREAD_CORE=1",
     "RE4_DSP_BEHIND=1",
+    // (2026-11-26) the sound: the stream's ARAM writes through the DSP lists' queue (the game does not wait for the DSP
+    // thread at a refill), the streams' file kept open, a new stream read ahead from its start (runtime/dsp.cpp, dvd.cpp);
+    // recording 16: refill frames +4.2 -> +1.5 ms, the game's heavy frames -0.5 ms. 0: as before
+    "RE4_SND_ARAMQ=1",
+    "RE4_DVD_STRPIN=1",
+    "RE4_DVD_STRHINT=3",
     0,
 };
 #endif  // RE4_3DS_RELEASE
@@ -218,15 +233,21 @@ __attribute__((constructor(101))) void readSettings()
 const char* gLanguageFrom = "pueblo.cfg";
 __attribute__((constructor(102))) void systemLanguage()
 {
-    if (getenv("RE4_GAME_LANGUAGE")) {
-        return;
-    }
     u8 lang = CFG_LANGUAGE_EN;
     if (R_SUCCEEDED(cfguInit())) {
         if (R_FAILED(CFGU_GetSystemLanguage(&lang))) {
             lang = CFG_LANGUAGE_EN;
         }
         cfguExit();
+    }
+    // (PuebloCTR pull request 3, DeanCharpen: the bottom screen - a simplified Chinese system gets its Chinese strings;
+    // the discs have no Chinese, only the port's screens do; pueblo.cfg's RE4_3DS_LANG, read before this, keeps the
+    // last word)
+    if (lang == CFG_LANGUAGE_ZH && !getenv("RE4_3DS_LANG")) {
+        setenv("RE4_3DS_LANG", "chs", 1);
+    }
+    if (getenv("RE4_GAME_LANGUAGE")) {
+        return;
     }
     const char* v = lang == CFG_LANGUAGE_DE ? "ger" : lang == CFG_LANGUAGE_FR ? "fra" : lang == CFG_LANGUAGE_ES ? "esp"
                   : lang == CFG_LANGUAGE_IT ? "ita" : "eng";
@@ -415,7 +436,19 @@ int main(void)
     re4_static_range_init((const void*) &re4_game_main);
     re4_3ds_movie_reserve();  // (R2b) the movies' work room before the textures take linear memory
     re4_3ds_input_start();
+    re4_3ds_icons_start();  // (2026-11-27) the item pictures, once, before the panel and the game (their own screen)
     re4_3ds_hud_start();
+    {  // (2026-11-27) the D-pad weapons' files: their room of linear memory now (the game not begun: later its allocator
+       // would race the GX thread's - it has no lock), only with weapons on the arrows (settings.bin, read by
+       // re4_3ds_hud_start; the room costs the textures' cache 3 MB: +0.4 ms of a heavy frame, recording 16) - the
+       // user's choice; else after a movie once weapons are assigned (movie_3ds.cpp). RE4_WEP_CACHE=KB (3072), 0: never
+        const unsigned bytes = re4_3ds_weapon_room_bytes();
+        void* room = bytes ? linearAlloc(bytes) : nullptr;
+        re4_dvd_weapon_arena(room, room ? bytes : 0);
+        re4_log("3ds: the weapon files' room: %u KB%s (linear %u KB free)", room ? bytes >> 10 : 0,
+                bytes && !room ? " - NOT taken" : bytes ? "" : " (no weapons on the arrows)",
+                (unsigned) (linearSpaceFree() >> 10));
+    }
     re4_log("starting re4_game_main");
 #if RE4_3DS_RELEASE
     printf("starting...\n");

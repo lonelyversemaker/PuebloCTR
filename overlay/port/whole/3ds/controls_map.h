@@ -32,15 +32,19 @@ enum Key { kKeyA, kKeyB, kKeyX, kKeyY, kKeyL, kKeyR, kKeyZL, kKeyZR, kKeyUp, kKe
 // kLookUp..kLookRight: the C stick's - the camera, the rifle scope's zoom; kTurn: the quick turn - the port gives the
 // stick back, then B: game/pl_class.cpp "back + B"; none of them a GameCube button)
 enum Action { kUp, kDown, kLeft, kRight, kLookUp, kLookDown, kLookLeft, kLookRight, kAction, kRun, kTurn, kAim, kFire,
-              kReload, kKnife, kSlash, kAshley, kCase, kMap, kOptions, kActions };
+              kReload, kKnife, kSlash, kAshley, kCase, kMap, kOptions,
+              // (2026-11-27) the D-pad weapons: the weapon of that arrow (the bottom screen assigns them; no GameCube
+              // button: controls_3ds.cpp asks the game - patch 0385)
+              kWepUp, kWepDown, kWepLeft, kWepRight, kActions };
 
 // GameCube pad bits (PAD_BUTTON_*)
 const uint16_t kGcLeft = 0x0001, kGcRight = 0x0002, kGcDown = 0x0004, kGcUp = 0x0008, kGcZ = 0x0010, kGcR = 0x0020,
                kGcL = 0x0040, kGcA = 0x0100, kGcB = 0x0200, kGcX = 0x0400, kGcY = 0x0800, kGcStart = 0x1000;
 
 const uint16_t kOut[kActions] = {0, 0, 0, 0, 0, 0, 0, 0, kGcA, kGcB, 0, kGcR, kGcA, kGcB, kGcL, kGcA, kGcX, kGcY, kGcZ,
-                                 kGcStart};
-const int8_t kHold[kActions] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, kAim, kAim, -1, kKnife, -1, -1, -1, -1};
+                                 kGcStart, 0, 0, 0, 0};
+const int8_t kHold[kActions] = {-1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, kAim, kAim, -1, kKnife, -1, -1, -1, -1,
+                               -1, -1, -1, -1};
 // the usual layout (the menus; a key's GameCube button): A B X Y L R ZL(none) ZR=Z, the D-pad, START
 const uint16_t kUsual[kKeys] = {kGcA, kGcB, kGcX, kGcY, kGcL, kGcR, 0, kGcZ, kGcUp, kGcDown, kGcLeft, kGcRight, kGcStart,
                                 0, 0, 0, 0, 0, 0, 0, 0};
@@ -66,7 +70,8 @@ inline Map defaults()
                                     {kKeyCUp, kNone}, {kKeyCDown, kNone}, {kKeyCLeft, kNone}, {kKeyCRight, kNone},
                                     {kKeyA, kNone}, {kKeyB, kNone}, {kNone, kNone}, {kKeyR, kNone}, {kKeyR, kKeyA}, {kKeyR, kKeyB},
                                     {kKeyL, kNone}, {kKeyL, kKeyA}, {kKeyX, kNone}, {kKeyY, kNone}, {kKeyZR, kNone},
-                                    {kKeyStart, kNone}};
+                                    {kKeyStart, kNone}, {kKeyUp, kNone}, {kKeyDown, kNone}, {kKeyLeft, kNone},
+                                    {kKeyRight, kNone}};
     for (int a = 0; a < kActions; a++) {
         m.b[a].k[0] = d[a][0];
         m.b[a].k[1] = d[a][1];
@@ -85,6 +90,12 @@ inline bool same(const Map& x, const Map& y)
 }
 
 inline bool held(uint32_t keys, uint8_t k) { return k < kKeys && (keys >> k & 1); }
+// (2026-11-27) action a's binding held whole: its key, or both of its two
+inline bool acting(const Map& m, uint32_t keys, int a)
+{
+    const Binding& b = m.b[a];
+    return b.keys() && held(keys, b.k[0]) && (b.keys() == 1 || held(keys, b.k[1]));
+}
 inline bool isHold(int a) { return a == kAim || a == kKnife; }
 
 // whether action b's key k0 is the first of action c's combination with the two acting at once (not a hold of it)

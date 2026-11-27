@@ -1,0 +1,212 @@
+# Port patch 0385 (the 3DS D-pad weapons): re4WepSwapCall (sscrn.cpp, after SubScreenCall in the game loop, on its
+# line) changes the weapon when the 3DS buttons ask for one by its item id (re4_wep_want, runtime/cheats.cpp) -
+# where the case could open, Leon alone, not on the boat nor in the shooting gallery - as the case's exit does
+# (SubScreenExit step 4), in task slot 1, the world suspended (STA_SUSPEND) and the case shut until it is done; the
+# disc reads without the frame pace meanwhile (re4_dvd_fast_now, runtime/dvd.cpp). re4WepPickable and
+# re4WepFileName serve the bottom screen's list and the platform's read-ahead of the weapon files.
+diff -ruN a/src/game/game.cpp b/src/game/game.cpp
+--- a/src/game/game.cpp	2026-11-27 17:30:48.070206767 +0900
++++ b/src/game/game.cpp	2026-11-27 17:30:48.218746119 +0900
+@@ -729,7 +729,7 @@
+     LightAreaUpdate();
+     Cckpt.move();
+     if (!FlagChkSign(pG->Debug_flg, DBG_TEST_MODE)) {
+-        SubScreenCall();
++        SubScreenCall(); { extern void re4WepSwapCall(); re4WepSwapCall(); }  /* port (patch 0385): the 3DS D-pad weapons */
+     }
+     if (pG->debug_mode == 0x10) {
+         ItemMgr.debugNumDisp(0x10);
+@@ -1024,7 +1024,7 @@
+ // OptScrn, 1 runs it, 2 restores Stop_flg, the HUD ids and returns to the saved mode (Game.Rno_bak).
+ void gameOption()
+ {
+-    static u32 stop_bak;
++    static u32 stop_bak; extern int re4OptionCloseTake();  /* port (patch 0385): sscrn.cpp */
+ 
+     switch (pG->Rno1) {
+     case 0:
+@@ -1038,7 +1038,7 @@
+         pG->Rno1++;
+         /* fallthrough */
+     case 1:
+-        if (OptScrn.move()) {
++        if (OptScrn.move() || re4OptionCloseTake()) {  /* port (patch 0385): or the 3DS bottom screen's RESUME */
+             InitGameTime();
+             pG->Rno1++;
+         }
+diff -ruN a/src/game/sscrn.cpp b/src/game/sscrn.cpp
+--- a/src/game/sscrn.cpp	2026-11-27 17:30:47.873564312 +0900
++++ b/src/game/sscrn.cpp	2026-11-27 17:30:48.219066282 +0900
+@@ -916,3 +916,172 @@
+ // `.long 0, 0, 0` here would land before the folded roomInit instantiation); the .bss gap is a
+ // zero-initialised static referenced only by a never-called inline (the dmg.cpp trick).
+ static u8 sscrn_pad[0x1C];
++
++/* port (patch 0385, the 3DS D-pad weapons): re4_wep_want (runtime/cheats.cpp; the 3DS buttons set it) asks for a
++   weapon of the case by its item id. Only where the case could open now (SubScreenCall's tests, the player's
++   subScrCheck), Leon alone (pl_type 0), not on the boat (the case does not equip there) nor in the shooting gallery
++   (its own inventory). The change is the case's (SubScreenExit step 4) in task slot 1 as the case's own task, the
++   world suspended (STA_SUSPEND, as the case: the player's move code does not run while the weapon's data is
++   replaced) and the case kept shut (STA_SSCRN_ENABLE off) until it is done; the disc reads without the frame pace
++   meanwhile (re4_dvd_fast_now, runtime/dvd.cpp). A task that never came (the slot's task gone) is undone. */
++extern "C" volatile int re4_wep_want;
++extern "C" volatile int re4_dvd_fast_now;
++extern "C" void re4_log(const char* fmt, ...);
++struct ReadFile {  /* game/read.cpp's */
++    u16 file;
++    u16 dll;
++    u32 flag;
++};
++extern ReadFile wep_data_leon[46];
++static cItem* sWepTo;
++static u32 sWepSuspended;
++static int sWepBusy;
++static OSTime sWepAsked;
++
++/* a weapon of Leon's case the D-pad may take (runtime/cheats.cpp lists them for the bottom screen too): in the
++   case, not empty, a gun or a grenade-like (the case's own "Equip" items, the eggs left out) */
++int re4WepPickable(cItem* p)
++{
++    if (!p || !p->isAlive(0) || !p->board || p->num == 0) {
++        return 0;
++    }
++    u8 t = itemType(p->id);
++    return t == 1 || t == 3;
++}
++
++/* the file of Leon's weapon `no` / `type` on the disc (ReadWepData's own choice; NULL: none) - read ahead by the
++   platform (runtime/dvd.cpp re4_dvd_weapon_want) */
++const char* re4WepFileName(int no, int type)
++{
++    if (no == 0x19 || no == 0x1F || no == 0x20 || no == 0x16 || no == 0x17) {
++        no = 0x13;
++    } else if (no == 3 && type == 2) {
++        no = 0x12;
++    } else if (no == 0xB && type > 1) {
++        no = 0x14;
++    } else if (no == 9) {
++        switch (type) {
++        case 1:
++            no = 0x15;
++            break;
++        case 2:
++            no = 0x18;
++            break;
++        }
++    } else if (no == 0xA) {
++        switch (type) {
++        case 1:
++            no = 0x1F;
++            break;
++        case 2:
++            no = 0x20;
++            break;
++        }
++    } else if (no == 0xE && type == 1) {
++        no = 0x19;
++    } else if (no == 0xD && type == 2) {
++        no = 0x1E;
++    }
++    if (no < 0 || no >= 46 || wep_data_leon[no].file == 0) {
++        return 0;
++    }
++    if (wep_data_leon[no].dll != 0) {  /* as ReadWepData's SET_DRS_NAME: a weapon with its code reads the .drs */
++        char* p = (char*) FileTbl[wep_data_leon[no].file].name;
++        while (*p && *p != '.') {
++            p++;
++        }
++        if (*p) {
++            p[1] = 'd';
++            p[2] = 'r';
++            p[3] = 's';
++        }
++    }
++    return FileTbl[wep_data_leon[no].file].name;
++}
++
++/* the 3DS bottom screen asks to close the game's option screen (RESUME, an arrow's weapon chosen): gameOption takes
++   it as the option screen's own close (from any of its pages) */
++extern "C" volatile int re4_option_close;
++int re4OptionCloseTake()
++{
++    int r = re4_option_close;
++    re4_option_close = 0;
++    return r;
++}
++
++static void re4WepSwapUndo()
++{
++    if (!sWepSuspended) {
++        StaFlagOff(pG, STA_SUSPEND);
++    }
++    StaFlagOn(pG, STA_SSCRN_ENABLE);
++    sWepBusy = 0;
++}
++
++static void re4WepSwapExec()
++{
++    cPlayer* pl = pPL;
++    OSTime t0 = OSGetTime();
++    int no, type, lv;
++    ItemMgr.arm(sWepTo);
++    no = WeaponId2WeaponNo(ItemMgr.weaponId());
++    type = WeaponId2WeaponType(ItemMgr.weaponId());
++    lv = ItemMgr.weapon() ? ItemMgr.weapon()->getBulletType() : 0;
++    if (pG->weapon_no != no || pG->weapon_type != type || pG->bullet_type != lv) {
++        re4_dvd_fast_now = 1;
++        SndBlkStop(2);
++        pl->weaponRelease();
++        pl->weaponLoad(no, type);
++        pG->bullet_type = lv;
++        pl->weaponInit();
++        re4_dvd_fast_now = 0;
++        for (u32 i = 0; i < 10; i++) {
++            if (pPL->Wep->m_pWep) {
++                pPL->Wep->m_pWep->move();
++            }
++        }
++    }
++    re4_log("wep swap: item 0x%x -> weapon %d.%d (bullets %d): %.1f ms from the press, the load %.1f ms",
++            (unsigned) sWepTo->id, no, type, lv, OSTicksToMicroseconds(OSGetTime() - sWepAsked) / 1000.0,
++            OSTicksToMicroseconds(OSGetTime() - t0) / 1000.0);
++    re4WepSwapUndo();
++    TaskExit();
++}
++
++void re4WepSwapCall()
++{
++    int id = re4_wep_want;
++    re4_wep_want = 0;
++    if (sWepBusy && TaskStatus(1) == 0) {  /* its task gone without finishing (killed with the room, ...) */
++        re4_log("wep swap: the task did not finish - the world let go");
++        re4WepSwapUndo();
++    }
++    if (id == 0 || sWepBusy) {
++        return;
++    }
++    if (pG->pl_type != 0 || (s16) pG->pl_life <= 0 || !StaFlagChk(pG, STA_SSCRN_ENABLE) ||
++        StaFlagChk(pG, STA_SSCRN_REQUEST) || StaFlagChk(pG, STA_SUB_SCRN) || StaFlagChk(pG, STA_PL_BOAT) ||
++        pG->room_id == 0x22C || pG->room_id == 0x31D || SubScreenWk.open_flag || pPL->subScrCheck() != 1 ||
++        (pSUB && pSUB->id == 3 && (s16) pG->ashley_life <= 0)) {
++        re4_log("wep swap: not now (room 0x%x, pl_type %d, case %d, player %d.%d.%d)", (unsigned) pG->room_id,
++                (int) pG->pl_type, StaFlagChk(pG, STA_SSCRN_ENABLE) ? 1 : 0, (int) pPL->r_no_0, (int) pPL->r_no_1,
++                (int) pPL->r_no_2);
++        return;
++    }
++    cItem* to = ItemMgr.search((u16) id);
++    if (!re4WepPickable(to) || to == ItemMgr.weapon()) {
++        return;
++    }
++    sWepTo = to;
++    sWepAsked = OSGetTime();
++    sWepSuspended = StaFlagChk(pG, STA_SUSPEND) ? 1 : 0;
++    StaFlagOff(pG, STA_SSCRN_ENABLE);
++    StaFlagOn(pG, STA_SUSPEND);
++    sWepBusy = 1;
++    TASK* t = TaskExec(1, re4WepSwapExec, 0);
++    if (t == 0) {
++        re4WepSwapUndo();
++        return;
++    }
++    t->setNoSuspend(1);
++}

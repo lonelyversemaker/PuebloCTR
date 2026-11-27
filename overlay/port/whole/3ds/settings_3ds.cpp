@@ -53,6 +53,8 @@ int re4_3ds_setup_touch(int phase, int x, int y);
 // (8.4) runtime/cheats.cpp hudSample: the game's numbers, each game frame
 extern volatile int re4_hud_life, re4_hud_life_max, re4_hud_ashley, re4_hud_ashley_max, re4_hud_ammo, re4_hud_reserve,
     re4_hud_peseta;
+extern volatile unsigned char re4_wep_slot[4];  // (2026-11-27) runtime/cheats.cpp: the D-pad weapons
+extern volatile int re4_wep_equipped, re4_wep_owned_n;
 volatile u32 re4_hud_vram_kb, re4_hud_linear_kb, re4_hud_gpu_busy, re4_hud_gpu_all;
 }
 
@@ -678,10 +680,15 @@ struct Button {
     u16 fill, lit;
 };
 // GameCube pad bits: Y 0x0800 (the case), Z 0x0010 (the map)
+// (2026-11-27) the strip of ui_bottom_3ds.cpp: the D-pad weapons' four cells (up, left, right, down: their list - no
+// pad bit), the case (Y while held), the settings' gear (a request); the big CASE / MAP buttons gone (the 3DS's own)
 const Button kButtons[] = {
-    {4, 208, 154, 30, "КЕЙС", 0x0800, 0x4208, 0x9CD3},  // (low: the middle for the map, the owner's wish)
-    {162, 208, 154, 30, "КАРТА", 0x0010, 0x4208, 0x9CD3},
+    {6, 206, 60, 32, "^", 0, 0x4208, 0x9CD3},   {64, 206, 60, 32, "<", 0, 0x4208, 0x9CD3},
+    {122, 206, 60, 32, ">", 0, 0x4208, 0x9CD3}, {180, 206, 60, 32, "v", 0, 0x4208, 0x9CD3},
+    {240, 206, 38, 32, "[]", 0, 0x4208, 0x9CD3},  // (2026-11-27: the map / the inventory; the case on Y)
+    {278, 206, 40, 32, "*", 0, 0x4208, 0x9CD3},
 };
+const int kCellSlot[4] = {0, 2, 3, 1};  // (the cells' arrows: up, left, right, down)
 const int kButtonCount = (int) (sizeof(kButtons) / sizeof(kButtons[0]));
 
 u16* bottomFb()
@@ -786,12 +793,25 @@ void drawStatus(u16* fb)
 }
 
 // (8.4) the numbers since the last picture (the panel's thread looks every 50 ms)
+extern "C" volatile int re4_inv_view, re4_inv_pressed;  // (2026-11-27) ui_bottom_3ds.cpp: the inventory
+extern "C" volatile unsigned re4_inv_gen;              //   runtime/cheats.cpp
+extern "C" volatile int re4_inv_tap;
+extern "C" int re4_ui_inv_hit(int x, int y, int* slot, int* id);
+extern "C" int re4_ui_inv_edit_touch(int phase, int x, int y);  // (2026-11-27) the inventory's edits
+extern "C" volatile int re4_inv_edit, re4_inv_sel, re4_inv_ask, re4_inv_ghost, re4_inv_refused, re4_inv_op_done,
+    re4_inv_trayturn;
+
 bool statusChanged()
 {
-    static int last[6] = {-2, -2, -2, -2, -2, -2};
-    const int now[6] = {re4_hud_life, re4_hud_life_max, re4_hud_ashley, re4_hud_ammo, re4_hud_reserve, re4_hud_peseta};
+    static int last[19] = {-2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2};
+    const int slots = re4_wep_slot[0] | re4_wep_slot[1] << 8 | re4_wep_slot[2] << 16 | re4_wep_slot[3] << 24;
+    const int now[19] = {re4_hud_life, re4_hud_life_max, re4_hud_ashley, re4_hud_ammo, re4_hud_reserve, re4_hud_peseta,
+                         re4_wep_equipped, slots, re4_wep_owned_n,  // (2026-11-27: the D-pad weapons' cells)
+                         re4_inv_view, re4_inv_view ? (int) re4_inv_gen : 0, re4_inv_pressed,  // (the inventory)
+                         re4_inv_edit, re4_inv_sel, re4_inv_ask, re4_inv_ghost, re4_inv_refused, re4_inv_op_done,  // (its edits)
+                         re4_inv_trayturn};
     bool changed = false;
-    for (int i = 0; i < 6; i++) {
+    for (int i = 0; i < 19; i++) {
         changed = changed || now[i] != last[i];
         last[i] = now[i];
     }
@@ -1039,6 +1059,9 @@ extern "C" void re4_3ds_hud_frame(double ms)
 // The GameCube pad bits to hold for the game (КЕЙС / КАРТА under the finger); on the speed panel (RE4_3DS_HUD=2) a new
 // touch goes to its switches (re4_3ds_hud_touch).
 extern "C" void re4_3ds_hud_touch(int x, int y);
+extern "C" void re4_option_request(void);  // (2026-11-27) runtime/cheats.cpp
+extern "C" int re4_3ds_setup_on(void);     // (2026-11-27) setup_3ds.cpp: the settings screen in use
+extern "C" void re4_3ds_wep_pick(int slot);  // (2026-11-27) setup_3ds.cpp: the D-pad weapons' list
 extern "C" unsigned re4_3ds_hud_pad(int phase, int x, int y)
 {
     if (!gHudOwns) {
@@ -1056,7 +1079,31 @@ extern "C" unsigned re4_3ds_hud_pad(int phase, int x, int y)
         }
         return 0;
     }
-    if (re4_3ds_minimap_touch(phase, x, y)) {  // (8.3e) a touch begun in the map's box: its scroll or its buttons
+    if (re4_ui_inv_edit_touch(phase, x, y)) {  // (2026-11-27) the inventory's edits took it
+        re4_inv_pressed = -1;
+        if (gPressed != -1) {
+            gPressed = -1;
+            gHudDirty = true;
+        }
+        return 0;
+    }
+    if (re4_inv_view && (phase < 0 || y < 205)) {  // (2026-11-27) the inventory: an item's touch
+        int slot = 0, id = 0;
+        const int hit = phase < 0 ? -1 : re4_ui_inv_hit(x, y, &slot, &id);
+        if (phase == 1 && hit >= 0) {
+            re4_inv_tap = (slot + 1) << 16 | id;
+            re4_log("3ds: the inventory: item 0x%02x touched", id);
+        }
+        re4_inv_pressed = phase == 1 || (phase == 0 && re4_inv_pressed >= 0) ? hit : -1;
+        if (gPressed != -1) {
+            gPressed = -1;
+            gHudDirty = true;
+        }
+        if (phase >= 0) {
+            return 0;
+        }
+    }
+    if (!re4_inv_view && re4_3ds_minimap_touch(phase, x, y)) {  // (8.3e) a touch begun in the map's box: its scroll or its buttons
         if (gPressed != -1) {
             gPressed = -1;
             gHudDirty = true;
@@ -1072,7 +1119,17 @@ extern "C" unsigned re4_3ds_hud_pad(int phase, int x, int y)
         return 0;
     }
     if (phase == 1) {
-        re4_log("3ds: the bottom screen: %s", i == 0 ? "the case" : "the map");
+        re4_log("3ds: the bottom screen: %s", i < 4 ? "a weapon's cell" : i == 4 ? "the case" : "the settings");
+        if (i == 5 && re4_3ds_setup_on()) {
+            re4_option_request();  // (2026-11-27) the game's option screen, as by START (patch 0384)
+        }
+        if (i == 4) {  // (2026-11-27) the map / the inventory
+            re4_inv_view = !re4_inv_view;
+            gHudDirty = true;
+        }
+        if (i < 4 && re4_3ds_setup_on()) {
+            re4_3ds_wep_pick(kCellSlot[i]);  // (2026-11-27) the option screen and the list for that arrow
+        }
     }
     return kButtons[i].padBit;
 }

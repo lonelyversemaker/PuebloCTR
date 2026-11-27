@@ -1,0 +1,28 @@
+# Port patch 0370 (2026-11-26, sound branch): once the game has set up and placed a new stream (Snd_str_init,
+# then Snd_str_init_pos for a start inside it), its first blocks are read ahead (runtime/dvd.cpp
+# re4_dvd_stream_hint, RE4_DVD_STRHINT: 0 as before, N blocks), not only after the driver's first refill read inside
+# the audio interrupt. The same bytes; the reads still complete at once. Same lines.
+diff -ruN a/src/game/snd.cpp b/src/game/snd.cpp
+--- a/src/game/snd.cpp
++++ b/src/game/snd.cpp
+@@ -1183,7 +1183,7 @@
+         w->busy = 1;
+         if (s_time != 0.0f) {
+             Snd_str_init_pos(w->play_id, smp);
+-        }
++        } { extern void Snd_str_hint_port(u32 snd_id); Snd_str_hint_port(w->play_id); }  /* port (patch 0370) */
+     } else {
+         if (no != -1) {
+             w = getStrWork(blk, no);
+diff -ruN a/src/game/snd_str0.cpp b/src/game/snd_str0.cpp
+--- a/src/game/snd_str0.cpp
++++ b/src/game/snd_str0.cpp
+@@ -1,7 +1,7 @@
+ // game/snd_str0: game-side entry points of the sound driver's streamed audio (ADPCM from disc).
+ // They prepare a stream work and set request bits that the audio frame executes (snd_str1..4).
+ #include "snd_drv.h"
+-
++extern "C" void re4_dvd_stream_hint(DVDFileInfo* fi, u32 start, u32 pos, u32 length, u32 size); void Snd_str_hint_port(u32 snd_id) { SND_STR* s = snd_id ? Snd_search_str_work_snd_id(snd_id) : 0; if (s) { re4_dvd_stream_hint(&s->info, s->file_offset, s->file_pos, s->buff_one, s->file_size > s->file_pos ? s->file_size - s->file_pos : 0); } }  /* port (patch 0370): runtime/dvd.cpp */
+ // Prepares stream `req_no` of stream block `blk_no` from file `name` in slot `no` (-1 = the RIT's
+ // default slot). Returns the sound id, 0 when the slot is busy or no voice is free.
+ u32 Snd_str_prepare(u16 blk_no, u16 req_no, char* name, s8 no)

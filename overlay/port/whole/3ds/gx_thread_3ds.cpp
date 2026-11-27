@@ -25,6 +25,8 @@
 
 #include "gx_internal.h"
 #include "re4_runtime.h"
+#define RE4_GX_FIFO_OUTLINE  // (B2) only the declarations: re4_gxq_s
+#include "../include/re4_gx_fifo.h"
 
 // settings_3ds.cpp (6.6): the panel's counters from the start
 extern "C" volatile u64 re4_hud_gx_busy, re4_hud_game_wait;
@@ -33,10 +35,18 @@ extern "C" volatile u32 re4_hud_vram_kb, re4_hud_linear_kb;
 extern "C" int re4_3ds_gx_init(void);         // gx_3ds.cpp
 extern "C" void re4_3ds_gx_frame(int log);    // gx_3ds.cpp
 extern "C" void re4_skin_finish(void);         // trans.cpp (patch 0325): the skinning jobs left, on this thread
+// (patch 0352, RE4_SKIN_LAZY) the jobs left are taken at the draws that read them: this thread's own job to its end,
+// asked for by the game; the decoder told the generation (gx_decode.cpp)
+extern "C" int re4_skin_lazy;
+extern "C" volatile int re4_skin_gx_wanted;
+extern "C" void re4_skin_gx_own(void);
+extern "C" void re4_gx_skin_lazy(unsigned gen);
 extern "C" void (*re4_skin_finish_fn)(void);   // trans.cpp: called after Render_done instead of waiting for them
 extern "C" int (*re4_skin_game_help_fn)(void); // trans.cpp: asked before the game takes a job while it waits
 extern "C" int (*re4_skin_yield_fn)(void);     // trans.cpp: asked by this thread between pieces of a job
 extern "C" void re4_3ds_gx_idle(void);        // gx_3ds.cpp
+extern "C" int re4_3ds_tex_preload_step(void);  // gx_3ds.cpp (2026-11-24: textures ahead, RE4_3DS_TEXPRELOAD)
+extern "C" int re4_3ds_tex_preload_wants(void);
 extern "C" int re4_skin_help(int who);         // trans.cpp (patch 0324): one skinning job, 1 if there was one
 extern "C" void (*re4_skin_wake_fn)(void);     // trans.cpp: called when a job is put
 // (stage 41, patch 0336) the heads of the lists that read a model's vertices, by who skinned them (gx_decode.cpp)
@@ -61,7 +71,11 @@ extern "C" int re4_gx_nrm_dead;  // gx_fifo.cpp (C2)
 extern unsigned char* re4_gx_window;
 extern unsigned char* re4_gx_window_end;  // (C1: the window into the ring)
 extern unsigned int re4_gxq_dropped[3];  // gx_fifo.cpp
-extern unsigned int re4_gxq_gen;         // gx_fifo.cpp (re4_gx_fifo.h)
+// re4_gxq_gen: gx_fifo.cpp (re4_gx_fifo.h, a field of re4_gxq_s since B2)
+extern int re4_gxq_putgen;               // gx_fifo.cpp (B1)
+unsigned re4_gx_timer_every = 16;        // (X, finding 8) the renderer's and the decoder's part timers: 1 in N
+extern int re4_gxq_ownerdedup;           // gx_fifo.cpp (B5)
+extern unsigned int re4_gxq_owners_left;
 extern unsigned int re4_gxq_dropped[3];  // gx_fifo.cpp
 
 int re4_gxq_on;            // the GX thread runs: the game's GX goes through the ring
@@ -86,7 +100,21 @@ const u32 kPublishBytes = 1024;     // the GX thread sees the records each time 
 const int kGameSpin = 1000;         // the game polls this many times before it sleeps on the GX thread
 const int kGxSpin = 4000;           // the GX thread polls this many times before it sleeps on the game
 
-u32* gRing;
+// (B2) the game's writer in one structure: one address for all of it (outside the unnamed namespace: the compiler
+// would split an internal one into its fields again)
+}  // namespace
+struct alignas(32) Re4GxqWriter {  // (B2) a cache line of its own: the GX thread reads its neighbours
+    u32* ring;
+    u32 write;      // the next record
+    u32 published;
+    u32 tailSeen;
+    u32 openAt, openBytes;
+    bool open;      // a record of FIFO bytes being filled at openAt (room for kBytesMax reserved)
+};
+Re4GxqWriter re4_gxq_writer;
+namespace {
+Re4GxqWriter& gW = re4_gxq_writer;
+u32*& gRing = gW.ring;
 // positions: bytes written since the start (wrapping at 2^32; in the ring at pos & kMask)
 u32 gHead;              // the records published (the game writes, the GX thread reads)
 u32 gTail;              // the records worked through (the GX thread writes)
@@ -97,12 +125,13 @@ Thread gThread;
 void* gGxTls;
 int gInitOk;
 
-// the game's side
-u32 gWrite;             // the next record
-u32 gPublished;
-u32 gTailSeen;
-bool gOpen;             // a record of FIFO bytes being filled at gOpenAt (room for kBytesMax reserved)
-u32 gOpenAt, gOpenBytes;
+// the game's side (B2: fields of gW)
+u32& gWrite = gW.write;
+u32& gPublished = gW.published;
+u32& gTailSeen = gW.tailSeen;
+bool& gOpen = gW.open;
+u32& gOpenAt = gW.openAt;
+u32& gOpenBytes = gW.openBytes;
 bool gWindowOn = true;  // RE4_3DS_RINGWINDOW (C1): the game's inline writes into the open record
 u32 gWindowOpens, gWindowTakes;  // per log window: windows opened; taken back by PPCSync (re4_gxq_window_take)
 
@@ -125,6 +154,9 @@ LightEvent gJobWork;
 volatile int gJobSleeping;
 Thread gJobThread;
 volatile int gJobQuit;  // (R1b) the end: the worker returns at its next wait
+// (2026-11-25, RE4_SKIN_GXIDLE) 1: this thread takes skinning jobs while the ring is empty; 0: not while the worker runs
+// (a job it starts stays its own until it is done - at the picture's end, in the frame's way); 0 by default
+int gSkinGxIdle = 0;
 volatile u64 gJobTicks;
 volatile u32 gJobsDone;
 u64 gBusyTicks, gIdleTicks;
@@ -242,12 +274,26 @@ void closeBytes()
     written(4 + ((gOpenBytes + 3) & ~3u));
 }
 
-u32* record(u32 kind, u32 bytes)
+__attribute__((noinline)) u32* recordSlow(u32 kind, u32 bytes)
 {
     closeBytes();
     u32* p = reserve(4 + bytes);
     p[0] = kind | bytes << 8;
     return p;
+}
+
+// (B2) The usual case at once: the record fits before the ring's end, there is room without waiting and no record of
+// FIFO bytes is open (then the window is closed too: re4_gxq_bytes opens it only in an open record)
+inline u32* record(u32 kind, u32 bytes)
+{
+    const u32 w = gWrite;
+    if (__builtin_expect(!gOpen && (w & kMask) <= kRingBytes - 4 - bytes && kRingBytes - (w - gTailSeen) >= 4 + bytes,
+                         1)) {
+        u32* p = at(w);
+        p[0] = kind | bytes << 8;
+        return p;
+    }
+    return recordSlow(kind, bytes);
 }
 
 // --- the GX thread -------------------------------------------------------------------------------
@@ -394,12 +440,56 @@ void skinWake()
     }
 }
 
+// (patch 0352) the jobs left at the draws that read them? RE4_SKIN_LAZY 1, 2: always; 3: while this thread is the
+// one that holds - its busy time without the skinning, smoothed over the last pictures, above RE4_SKIN_LAZYBUSY ms (32;
+// record 16, 2026-11-26: above it the jobs at the draws win, below it the game pays more than this thread saves)
+u64 gSkinMono;  // the skinning at the records after the pictures (ticks, from the start)
+extern "C" volatile u64 re4_gx_skin_draw_mono;  // gx_decode.cpp: the jobs run or waited for at the draws
+volatile u64 re4_gx_skin_draw_mono;
+bool skinLazyNow()
+{
+    if (re4_skin_lazy != 3) {
+        return re4_skin_lazy > 0;
+    }
+    static float limit = -1.0f, smooth;
+    static u64 lastBusy, lastSkin;
+    static u32 pictures, lazy;
+    if (limit < 0.0f) {
+        const char* e = getenv("RE4_SKIN_LAZYBUSY");
+        limit = e ? (float) atof(e) : 32.0f;
+        re4_log("3ds: skinning jobs at the draws while this thread holds: busy without them above %.1f ms "
+                "(RE4_SKIN_LAZY 3, RE4_SKIN_LAZYBUSY)", limit);
+    }
+    const u64 busy = gHudBusyBase + gBusyTicks, skin = gSkinMono + re4_gx_skin_draw_mono;
+    if (lastBusy) {
+        const u64 b = busy - lastBusy, k = skin - lastSkin;
+        const float ms = (float) (b > k ? b - k : 0) / (float) CPU_TICKS_PER_MSEC;
+        smooth = smooth * 0.75f + ms * 0.25f;
+    }
+    lastBusy = busy;
+    lastSkin = skin;
+    const bool on = smooth > limit;
+    lazy += on;
+    if (++pictures == 300) {
+        re4_log("3ds: skinning jobs at the draws in %u of 300 pictures (busy without them %.1f ms, smoothed, now)", lazy,
+                (double) smooth);
+        pictures = lazy = 0;
+    }
+    return on;
+}
+
 // the skinning jobs left after Render_done (trans.cpp, patch 0325): this thread runs them at a record before the
 // next picture's, which read their vertices
 void skinFinishRecord(uint32_t gen, uint32_t)
 {
     const u64 from = svcGetSystemTick();
-    re4_skin_finish();
+    if (skinLazyNow()) {  // (patch 0352) the rest: at the draws that read them (re4_skin_need), the worker meanwhile
+        re4_skin_gx_own();
+        re4_gx_skin_lazy(gen);
+    } else {
+        re4_skin_finish();
+    }
+    gSkinMono += svcGetSystemTick() - from;
     gFinishTicks += svcGetSystemTick() - from;
     re4_gx_head_announce(gen);  // (stage 41) the draws from here read that generation's arrays
 }
@@ -489,12 +579,20 @@ void gxMain(void*)
     u32 tail = 0;
     for (;;) {
         u32 head = __atomic_load_n(&gHead, __ATOMIC_SEQ_CST);
-        if (head == tail) {  // nothing in the ring: a skinning job (patch 0324), counted as busy
+        if (head == tail && (gSkinGxIdle || !gJobThread)) {  // nothing in the ring: a skinning job (patch 0324), busy
             const u64 skinStart = svcGetSystemTick();
             if (re4_skin_help(0)) {
                 gBusyTicks += svcGetSystemTick() - skinStart;
                 gIdleJobTicks += svcGetSystemTick() - skinStart;  // (stage 41)
                 gIdleJobs++;
+                continue;
+            }
+        }
+        if (head == tail && re4_3ds_tex_preload_wants()) {  // (2026-11-24) the ring empty: a texture read ahead (busy)
+            re4_3ds_gx_idle();  // (first: the GPU given what it has, as before the sleep)
+            const u64 preStart = svcGetSystemTick();
+            if (__atomic_load_n(&gHead, __ATOMIC_SEQ_CST) == tail && re4_3ds_tex_preload_step()) {
+                gBusyTicks += svcGetSystemTick() - preStart;
                 continue;
             }
         }
@@ -511,7 +609,11 @@ void gxMain(void*)
             if (head == tail) {
                 __atomic_store_n(&gGxSleeping, 1, __ATOMIC_SEQ_CST);
                 if (__atomic_load_n(&gHead, __ATOMIC_SEQ_CST) == tail) {
-                    LightEvent_Wait(&gWork);
+                    if (re4_3ds_tex_preload_wants()) {  // (stage98) textures ahead waiting for the time: back in 4 ms
+                        LightEvent_WaitTimeout(&gWork, 4000000);
+                    } else {
+                        LightEvent_Wait(&gWork);
+                    }
                 }
                 __atomic_store_n(&gGxSleeping, 0, __ATOMIC_SEQ_CST);
             }
@@ -534,6 +636,9 @@ void gxMain(void*)
             gRecordBytes += size;
             if ((++n & 31) == 0) {
                 progress(tail);
+                if (re4_skin_gx_wanted) {  // (patch 0352) the game waits for this thread's own job
+                    re4_skin_gx_own();
+                }
             }
         }
         progress(tail);
@@ -568,6 +673,8 @@ void frameFn(uint32_t log, uint32_t)
         re4_log("3ds: the ring's window (RE4_3DS_RINGWINDOW %d) per picture: %.1f opened, %.1f taken back by PPCSync",
                 (int) gWindowOn, (double) gWindowOpens / gFrames, (double) gWindowTakes / gFrames);
         gWindowOpens = gWindowTakes = 0;
+        re4_log("3ds: owner records left out per picture (B5): %.0f", (double) re4_gxq_owners_left / gFrames);
+        re4_gxq_owners_left = 0;
         re4_log("3ds: skinning jobs' time per picture (stage 41): the worker %.2f ms (%.1f jobs), the game in its waits "
                 "%.2f ms (%.1f jobs), the GX thread with an empty ring %.2f ms (%.1f calls), at the record after the "
                 "picture %.2f ms",
@@ -625,6 +732,11 @@ int re4_gxq_start(void)
         }
         re4_log("3ds: the skinning jobs' worker (RE4_3DS_JOBCORE %d): %s", core,
                 gJobThread ? "on" : core > 0 ? "no thread there" : "off");
+        if (const char* gi = getenv("RE4_SKIN_GXIDLE")) {  // (2026-11-25)
+            gSkinGxIdle = atoi(gi);
+            re4_log("3ds: the GX thread takes skinning jobs while its ring is empty: %s (RE4_SKIN_GXIDLE)",
+                    gSkinGxIdle ? "yes" : "no, the worker does");
+        }
     }
     if (!gThread) {
         re4_log("3ds: GX thread: no thread on core 2, all on the game's thread");
@@ -656,6 +768,29 @@ int re4_gxq_start(void)
     }
     re4_log("3ds: normal matrices left out (no one reads them here; patch 0335): %s (RE4_3DS_NRMDEAD)",
             re4_gx_nrm_dead ? "on" : "off");
+    if (const char* dt = getenv("RE4_3DS_DRAWTIMERS")) {  // (X, finding 8)
+        const unsigned n = (unsigned) atoi(dt);
+        re4_gx_timer_every = n && !(n & (n - 1)) ? n : 16;
+    }
+    re4_log("3ds: the GX thread's part timers: every %u-th draw (RE4_3DS_DRAWTIMERS)", re4_gx_timer_every);
+    {  // (B5)
+        const char* st = getenv("RE4_3DS_STRIDES");
+        re4_gxq_s.strides = !(st && *st == '0');
+        const char* od = getenv("RE4_3DS_OWNERDEDUP");
+        const char* os = getenv("RE4_GX_OWNER_STATS");
+        re4_gxq_ownerdedup = !(od && *od == '0') && !(os && *os == '1');
+        re4_log("3ds: equal array strides left out: %s (RE4_3DS_STRIDES); owner records with the same table left out: "
+                "%s (RE4_3DS_OWNERDEDUP)",
+                re4_gxq_s.strides ? "on" : "off", re4_gxq_ownerdedup ? "on" : "off");
+    }
+    {  // (C4)
+        const char* dr = getenv("RE4_3DS_DEADREGS");
+        re4_gxq_s.dead_regs = (unsigned char) (dr ? atoi(dr) & 7 : 7);
+        re4_log("3ds: BP registers no one reads left out (patch 0343, RE4_3DS_DEADREGS %d): texture sizes 0x30-0x3F %s, "
+                "0x42 %s, image1 / image2 %s",
+                re4_gxq_s.dead_regs, (re4_gxq_s.dead_regs & 1) ? "on" : "off", (re4_gxq_s.dead_regs & 2) ? "on" : "off",
+                (re4_gxq_s.dead_regs & 4) ? "on" : "off");
+    }
     re4_gx_head_on = 1;  // (stage 41)
     if (const char* hj = getenv("RE4_3DS_HEADJOB")) {
         re4_gx_head_on = atoi(hj);
@@ -664,6 +799,11 @@ int re4_gxq_start(void)
     re4_log("3ds: heads of the animated lists by the skinning jobs (patch 0336): %s (RE4_3DS_HEADJOB)",
             re4_gx_head_on == 2 ? "on, each checked" : re4_gx_head_on > 0 ? "on" : "off");
     re4_log("3ds: the ring's register shadow on the game's side: %s", re4_gxq_gen != ~0u ? "on" : "off");
+    if (const char* pg = getenv("RE4_3DS_PUTGEN")) {  // (B1)
+        re4_gxq_putgen = *pg != '0';
+    }
+    re4_log("3ds: the shadow forgets at FIFO bytes: %s (RE4_3DS_PUTGEN)",
+            re4_gxq_putgen ? "at each write" : "only at a register command");
     re4_log("3ds: GX thread on core 2 (priority 0x%lx): the decoder and the renderer; ring %u KB", (long) priority - 1,
             kRingBytes >> 10);
     return 1;

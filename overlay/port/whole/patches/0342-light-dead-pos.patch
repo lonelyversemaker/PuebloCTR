@@ -1,0 +1,78 @@
+# Port patch 0342 (2026-11-22; docs/23 C2a): for a type 5 (parallel) light
+# LightSetModel and commonClothLightSet leave out the first position (getPos, view matrix, GXInitLightPos) that
+# lightSetParallel overwrites; the same bits. RE4_LIT_DEADPOS=0: as before.
+diff -ruN a/src/game/trans_lit.cpp b/src/game/trans_lit.cpp
+--- a/src/game/trans_lit.cpp	2026-11-22 21:35:00.972950977 +0900
++++ b/src/game/trans_lit.cpp	2026-11-22 21:35:02.408817937 +0900
+@@ -40,7 +40,7 @@
+     }
+ 
+ static GXLightObj lightObjBlack;
+-Vec obj_pos;
++Vec obj_pos; extern int re4_lit_deadpos; int re4LitDeadposInit();  /* port (patch 0342): the switch at the end of the file */
+ int obj_flag;
+ f32 obj_size;
+ const GXColor colZero = {0, 0, 0, 0};
+@@ -94,10 +94,10 @@
+             lightSetLocalAmb(l, &amb);
+             continue;
+         }
+-        l->getPos(&p);
++        const int re4Par = l->Type == 5 && (re4_lit_deadpos < 0 ? re4LitDeadposInit() : re4_lit_deadpos); if (!re4Par) l->getPos(&p);  /* port (patch 0342): type 5 - lightSetParallel sets the position */
+         mask |= 1 << i;
+-        PSMTXMultVec(pG->Camera.v_mat, &p, &p);
+-        GXInitLightPos(&lobj[i], p.x, p.y, p.z);
++        if (!re4Par) PSMTXMultVec(pG->Camera.v_mat, &p, &p);
++        if (!re4Par) GXInitLightPos(&lobj[i], p.x, p.y, p.z);
+         lightSetColor(&lobj[i], l, (cEm*) pMod);
+         GXInitLightDir(&lobj[i], 0.0f, 0.0f, 1.0f);
+         if (l->Type > 7) {
+@@ -170,10 +170,10 @@
+             lightSetLocalAmb(l, &amb);
+             continue;
+         }
+-        l->getPos(&p);
++        const int re4Par = l->Type == 5 && (re4_lit_deadpos < 0 ? re4LitDeadposInit() : re4_lit_deadpos); if (!re4Par) l->getPos(&p);  /* port (patch 0342): type 5 - lightSetParallel sets the position */
+         mask |= 1 << i;
+-        PSMTXMultVec(pG->Camera.v_mat, &p, &p);
+-        GXInitLightPos(&lobj[i], p.x, p.y, p.z);
++        if (!re4Par) PSMTXMultVec(pG->Camera.v_mat, &p, &p);
++        if (!re4Par) GXInitLightPos(&lobj[i], p.x, p.y, p.z);
+         lightSetColor(&lobj[i], l, NULL);
+         GXInitLightDir(&lobj[i], 0.0f, 0.0f, 1.0f);
+         if (l->Type > 7) {
+@@ -224,10 +224,10 @@
+             lightSetLocalAmb(l, &amb);
+             continue;
+         }
+-        l->getPos(&p);
++        const int re4Par = l->Type == 5 && (re4_lit_deadpos < 0 ? re4LitDeadposInit() : re4_lit_deadpos); if (!re4Par) l->getPos(&p);  /* port (patch 0342): type 5 - lightSetParallel sets the position */
+         mask |= 1 << i;
+-        PSMTXMultVec(pG->Camera.v_mat, &p, &p);
+-        GXInitLightPos(&lobj[i], p.x, p.y, p.z);
++        if (!re4Par) PSMTXMultVec(pG->Camera.v_mat, &p, &p);
++        if (!re4Par) GXInitLightPos(&lobj[i], p.x, p.y, p.z);
+         a = l->DispCol.a;
+         l->DispCol.a = (a * pow) >> 8;
+         lightSetColor(&lobj[i], l, NULL);
+@@ -543,3 +543,20 @@
+     GXSetChanAmbColor(4, c);
+ }
+ 
++/* PORT (patch 0342, C2a of the 3DS deep optimisation): for a type 5 (parallel) light LightSetModel, the room light loop and
++ * commonClothLightSet leave out the position they computed first (getPos, the view matrix, GXInitLightPos):
++ * lightSetParallel, always called for the type, writes the position of the same light object again, and nothing reads
++ * the local in between (getPos is an inline copy of World and always writes). About 870 lights a frame in the r104
++ * fight. The same bits. RE4_LIT_DEADPOS=0: computed as before. */
++#include <stdlib.h>
++extern "C" void re4_log(const char* fmt, ...);
++int re4_lit_deadpos = -1;
++
++int re4LitDeadposInit()
++{
++    const char* v = getenv("RE4_LIT_DEADPOS");
++    re4_lit_deadpos = !(v && *v == '0');
++    re4_log("light position (patch 0342, RE4_LIT_DEADPOS %d): the first position of a parallel light %s",
++            re4_lit_deadpos, re4_lit_deadpos ? "left out" : "computed");
++    return re4_lit_deadpos;
++}

@@ -56,6 +56,14 @@ _PGO_DEFAULT = Path(__file__).resolve().parents[1] / "pgo" / "re4.profdata"
 PGO = os.environ.get("PUEBLO_PGO", str(_PGO_DEFAULT) if _PGO_DEFAULT.is_file() else "")
 PGO = "" if PGO == "off" else PGO
 PGO_GROUPS = os.environ.get("PUEBLO_PGO_GROUPS", "mod,main").split(",")
+# (experiments) more flags for every clang compile, e.g. PUEBLO_CLANG_EXTRA="-munaligned-access"; a PGO group may
+# also be a target's name (re4_sdk_obj: the SDK alone out of the platform group)
+CLANG_EXTRA = os.environ.get("PUEBLO_CLANG_EXTRA", "").split()
+# for the New 3DS CPU, every clang compile (2026-11-22, measured on the console against the same tree): word loads and
+# stores of unaligned data (the ARM11 does them; clang's default for armv6k builds them byte by byte, gcc's does not)
+# and no errno from math functions (one compare less after each square root; values the same) - fight -0.4 ms, the
+# village path -1.2 ms. PUEBLO_CPU_FLAGS=off: without
+CPU_FLAGS = [] if os.environ.get("PUEBLO_CPU_FLAGS") == "off" else ["-munaligned-access", "-fno-math-errno"]
 
 TREE = OUT = LBUILD = GEN = None
 RELEASE = False
@@ -246,8 +254,10 @@ def main():
         c = command(entry, o)
         if RELEASE and group == "3ds":
             c = c[:1] + ["-DRE4_3DS_RELEASE=1"] + c[1:]
-        if PGO and group.split(":")[0] in PGO_GROUPS:
+        if PGO and (group.split(":")[0] in PGO_GROUPS or target in PGO_GROUPS):
             c = c[:1] + ["-fprofile-instr-use=" + PGO] + c[1:]
+        if CPU_FLAGS + CLANG_EXTRA:
+            c = c[:1] + CPU_FLAGS + CLANG_EXTRA + c[1:]
         jobs_list.append((c, o))
         groups.setdefault(group, []).append(o)
 
@@ -296,6 +306,12 @@ def main():
     run([BIN + "g++", "-specs=" + str(specs), *ARCH, "-Wl,-Map," + str(OUT / "re4.map"),
          "-Wl,--no-enum-size-warning",
          "-Wl,--wrap=abort,--wrap=exit",  # profile_3ds.cpp: where an abort/exit came from
+         # gx_3ds.cpp (finding 4, 2026-11-24): the VRAM free total kept until anyone's next alloc / free - where
+         # the tree has the wrappers (an older tree links without them)
+         *(["-Wl,--wrap=vramAlloc,--wrap=vramAllocAt,--wrap=vramMemAlign,--wrap=vramMemAlignAt,--wrap=vramFree"]
+           if "__wrap_vramAlloc" in (TREE / "port/whole/3ds/gx_3ds.cpp").read_text() else []),
+         *(["-Wl,--wrap=linearAlloc,--wrap=linearMemAlign,--wrap=linearFree,--wrap=linearSpaceFree,--wrap=vramSpaceFree"]  # gx_3ds.cpp: the allocators' lock (the GX split, 2026-11-26)
+           if "__wrap_linearAlloc" in (TREE / "port/whole/3ds/gx_3ds.cpp").read_text() else []),
          "-Wl,--wrap=C3D_UpdateUniforms",  # gx_3ds.cpp: only when a uniform of the type is dirty
          "-o", elf, main_o, *groups["platform"], *groups["3ds"], table_o, *static_objs,
          "-L" + DKP + "/libctru/lib", "-lpthread", "-lcitro3d", "-lctru", "-lm"])

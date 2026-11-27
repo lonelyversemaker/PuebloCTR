@@ -1,0 +1,36 @@
+# Port patch 0350 (2026-11-25): weather sheets half - cEsp::ChannelSet takes the sprite's alpha from
+# re4_esp_col_a (runtime/potato.cpp): a weather sheet 0x15 kept while RE4_WEATHER_SHEETS leaves out every second one is
+# drawn for two (2a - a^2 / 255, added 2a); m_Col_a itself stays as it was.
+diff -ruN a/src/game/esp_sub.cpp b/src/game/esp_sub.cpp
+--- a/src/game/esp_sub.cpp	2026-11-25 20:40:13.987462365 +0900
++++ b/src/game/esp_sub.cpp	2026-11-25 20:40:14.072059941 +0900
+@@ -143,6 +143,7 @@
+ 
+ // RE4_ESP_BATCH=2: why sprites did not join, logged every 300 frames (diagnostic)
+ extern "C" void re4_log(const char* fmt, ...);
++extern "C" f32 re4_esp_col_a(cEsp* esp, f32 a); /* port: runtime/potato.cpp (patch 0350): weather sheets */
+ static u32 s_espWhy[12], s_espWhyFrame, s_espWhyTool;
+ 
+ static void espBatchWhy(cEsp* esp, int join)
+@@ -1303,16 +1304,17 @@
+         s_espRun.chanKey = m_Tool_flg & 0x20080;
+         s_espRun.haveChan = 1;
+     }
++    const f32 colA = re4_esp_col_a(this, m_Col_a);  // port (patch 0350): a weather sheet drawn for two
+     if (m_Flg & 1) {
+-        col.r = (u8) (m_Col_r * m_Col_a * (1.0f / 255.0f));
+-        col.g = (u8) (m_Col_g * m_Col_a * (1.0f / 255.0f));
+-        col.b = (u8) (m_Col_b * m_Col_a * (1.0f / 255.0f));
++        col.r = (u8) (m_Col_r * colA * (1.0f / 255.0f));
++        col.g = (u8) (m_Col_g * colA * (1.0f / 255.0f));
++        col.b = (u8) (m_Col_b * colA * (1.0f / 255.0f));
+         col.a = 0xFF;
+     } else {
+         col.r = (u8) m_Col_r;
+         col.g = (u8) m_Col_g;
+         col.b = (u8) m_Col_b;
+-        col.a = (u8) m_Col_a;
++        col.a = (u8) colA;
+     }
+     if (!(m_Flg & 4) && EffIsSetFinalCol()) {
+         EffGetFinalCol(&fin);

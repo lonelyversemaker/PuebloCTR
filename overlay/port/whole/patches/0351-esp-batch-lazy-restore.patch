@@ -1,0 +1,151 @@
+# Port patch 0351 (2026-11-25, G-2 of docs/reviews/2026-11-24-gpu.md): a sprite batch closed by a sprite that opens the
+# next one leaves the state the last sprite left owed (the restore and the next set-up would cancel); paid before any
+# other entry, a sprite that does not batch and the table's end. RE4_ESP_LAZY=1 by default (0: as patch 0339 always did).
+diff -ruN a/src/game/esp_sub.cpp b/src/game/esp_sub.cpp
+--- a/src/game/esp_sub.cpp	2026-11-25 23:20:59.569279727 +0900
++++ b/src/game/esp_sub.cpp	2026-11-25 23:20:59.667336637 +0900
+@@ -112,6 +112,11 @@
+    as one GXBegin - each quad through its m_Mat on the CPU, ChannelSet's colour per vertex (see the patch's head). */
+ int re4_esp_batch = -1;
+ int re4_esp_quads = -1;  // (v2) RE4_ESP_QUADS=1 (the default): the batch as one quad record (re4_gx_put_quads), 0: a GXBegin
++/* port (patch 0351, 2026-11-25): RE4_ESP_LAZY=1 - the state the last sprite left is owed after a batch closed by a sprite
++   that opens the next one (the restore and the next set-up would cancel), paid before anything else draws */
++int re4_esp_lazy = -1;
++static u8 s_espOwed;
++static u32 s_espOwedN, s_espPaidN;
+ extern "C" void re4_gx_put_quads(const unsigned int* words); /* port: runtime/gx_fifo.cpp (patch 0339 v2) */
+ extern "C" void __GXSetDirtyState(void); /* the SDK (GXGeometry.c): what GXBegin sends first */
+ #define ESP_BATCH_MAX 128
+@@ -156,6 +161,9 @@
+                 names[3], s_espWhy[3], (unsigned) s_espWhyTool, names[4], s_espWhy[4], names[5], s_espWhy[5],
+                 names[6], s_espWhy[6], names[7], s_espWhy[7], names[8], s_espWhy[8], names[9], s_espWhy[9],
+                 names[10], s_espWhy[10], names[11], s_espWhy[11]);
++        re4_log("esp batch (frame %u): restores owed %u, paid %u (RE4_ESP_LAZY %d)", (unsigned) pG->Frame_cnt,
++                s_espOwedN, s_espPaidN, re4_esp_lazy);
++        s_espOwedN = s_espPaidN = 0;
+         memset(s_espWhy, 0, sizeof(s_espWhy));
+         s_espWhyTool = 0;
+     }
+@@ -200,12 +208,56 @@
+            s_espBatch.flags == (esp->m_Tool_flg & 0xB08000);
+ }
+ 
++// (patch 0351) the state the last sprite left - after the batch, or owed until here
++static void espBatchRestore()
++{
++    GXSetChanCtrl(4, 0, 0, 0, 0, 0, 2);
++    GXSetChanMatColor(4, s_espBatch.lastCol);
++    s_espRun.col = s_espBatch.lastCol;
++    s_espRun.haveCol = 1;
++    {
++    GXClearVtxDesc();
++    GXSetVtxDesc(9, 1);
++    GXSetVtxDesc(0xA, 1);
++    GXSetVtxDesc(0xD, 1);
++    GXSetVtxAttrFmt(0, 9, 1, 1, 0);
++    GXSetVtxAttrFmt(0, 0xA, 0, 1, 0);
++    GXSetVtxAttrFmt(0, 0xD, 1, 1, 0);
++    }
++    GXLoadPosMtxImm(s_espBatch.lastMat, 0);
++    GXSetCurrentMtx(0);
++    s_espRun.haveMtx = 1;
++    s_espOwed = 0;
++}
++
++static void espBatchFlushBody(int owe);
++
++// (patch 0351) the batch drawn and the state paid back (as patch 0339 always did), or a debt paid
+ void re4EspBatchFlush()
+ {
+-    const int n = s_espBatch.n;
+-    if (n == 0) {
+-        return;
++    if (s_espBatch.n > 0) {
++        espBatchFlushBody(0);
++    } else if (s_espOwed) {
++        s_espPaidN++;
++        espBatchRestore();
++    }
++}
++
++// (patch 0351) the batch drawn; with RE4_ESP_LAZY the restore owed (a batch opens right after)
++static void espBatchFlushOwe()
++{
++    if (re4_esp_lazy < 0) {
++        const char* e = getenv("RE4_ESP_LAZY");
++        re4_esp_lazy = e ? atoi(e) : 1;
++    }
++    if (s_espBatch.n > 0) {
++        espBatchFlushBody(re4_esp_lazy > 0);
+     }
++}
++
++static void espBatchFlushBody(int owe)
++{
++    const int n = s_espBatch.n;
+     s_espBatch.n = 0;
+     const u8* dl = g_EspCommonDisplayList + 4;  // after the NOP, GXBegin and its count: 4 x (pos s8 3, nrm s8 3, tex s8 2)
+     Mtx id;
+@@ -280,30 +332,22 @@
+     if (s_espBatch.flags & 0x808000) {
+         GXSetAlphaUpdate(0);
+     }
+-    // the state the last sprite left
+-    GXSetChanCtrl(4, 0, 0, 0, 0, 0, 2);
+-    GXSetChanMatColor(4, s_espBatch.lastCol);
+-    s_espRun.col = s_espBatch.lastCol;
+-    s_espRun.haveCol = 1;
+-    {
+-    GXClearVtxDesc();
+-    GXSetVtxDesc(9, 1);
+-    GXSetVtxDesc(0xA, 1);
+-    GXSetVtxDesc(0xD, 1);
+-    GXSetVtxAttrFmt(0, 9, 1, 1, 0);
+-    GXSetVtxAttrFmt(0, 0xA, 0, 1, 0);
+-    GXSetVtxAttrFmt(0, 0xD, 1, 1, 0);
++    if (owe) {  // (patch 0351) the next batch opens now: its set-up would undo this; the material colour not known
++        s_espOwed = 1;
++        s_espOwedN++;
++        s_espRun.haveCol = 0;
++        s_espRun.haveMtx = 1;  // (the set-up's GXSetCurrentMtx(0))
++        return;
+     }
+-    GXLoadPosMtxImm(s_espBatch.lastMat, 0);
+-    GXSetCurrentMtx(0);
+-    s_espRun.haveMtx = 1;
++    // the state the last sprite left
++    espBatchRestore();
+ }
+ 
+ // ExecOt, before each entry: the batch drawn unless the entry is a plain sprite that may join it
+ void re4EspBatchBefore(void (*func)(void*), u16 kind)
+ {
+-    if (s_espBatch.n > 0 && !(kind == 8 && func == (void (*)(void*)) EspCommonTrans)) {
+-        re4EspBatchFlush();
++    if ((s_espBatch.n > 0 || s_espOwed) && !(kind == 8 && func == (void (*)(void*)) EspCommonTrans)) {
++        re4EspBatchFlush();  // (patch 0351: or the state owed paid)
+     }
+ }
+ 
+@@ -312,7 +356,7 @@
+     const u8* dl = g_EspCommonDisplayList + 4;
+     int v;
+     if (s_espBatch.n >= ESP_BATCH_MAX) {
+-        re4EspBatchFlush();  // (the state stays: the next batch goes on with it)
++        espBatchFlushOwe();  // (the state stays: the next batch goes on with it; patch 0351: owed)
+     }
+     if (s_espBatch.n == 0) {
+         s_espBatch.tex = (s32) esp->m_Tex_id;
+@@ -376,7 +420,11 @@
+         espBatchWhy(esp, batchJoin);
+     }
+     if (!batchJoin) {
+-        re4EspBatchFlush();
++        if (espBatchFlags(esp)) {
++            espBatchFlushOwe();  // (patch 0351) this sprite opens the next batch
++        } else {
++            re4EspBatchFlush();  // (the state owed paid too)
++        }
+     }
+     s_espBatch.quiet = (u8) batchJoin;
+     if (!s_espRun.ok || !s_espRun.haveBlend || s_espRun.blend[0] != esp->m_Blend_mode ||

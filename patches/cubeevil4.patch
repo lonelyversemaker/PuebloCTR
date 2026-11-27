@@ -1,5 +1,5 @@
 diff --git a/port/src/stack_context.cpp b/port/src/stack_context.cpp
-index 0e13cd64..7ecc4eb8 100644
+index 0e13cd64f..7ecc4eb8a 100644
 --- a/port/src/stack_context.cpp
 +++ b/port/src/stack_context.cpp
 @@ -10,3 +10,3 @@
@@ -10,7 +10,7 @@ index 0e13cd64..7ecc4eb8 100644
 +// Android, the Linux ARM test builds of the whole-program port (run under
 +// qemu) and the 3DS share the Boost.Context assembly.
 diff --git a/port/tools/disc_release.py b/port/tools/disc_release.py
-index be01c41a..31d20eb0 100644
+index be01c41a8..31d20eb0b 100644
 --- a/port/tools/disc_release.py
 +++ b/port/tools/disc_release.py
 @@ -9 +9 @@ The same rule as runtime/dvd.cpp (re4_disc_release); it reads only the disc head
@@ -20,14 +20,14 @@ index be01c41a..31d20eb0 100644
 -SUPPORTED = ("debug", "retail-eu", "retail-us", "retail-jp")
 +SUPPORTED = ("debug", "retail-eu", "retail-jp")
 diff --git a/port/tools/room_tour_report.py b/port/tools/room_tour_report.py
-index 5dcc7270..912d8d67 100644
+index 5dcc7270c..912d8d676 100644
 --- a/port/tools/room_tour_report.py
 +++ b/port/tools/room_tour_report.py
 @@ -227 +227 @@ def analyse(room, log_path, meta):
 -        elif l.startswith("heap: no room") or l.startswith("heap: heap "):
 +        elif l.startswith("heap: no room"):
 diff --git a/port/tools/test_whole_disc_folder.py b/port/tools/test_whole_disc_folder.py
-index e879fff7..3ee49b3f 100644
+index e879fff7f..3ee49b3f4 100644
 --- a/port/tools/test_whole_disc_folder.py
 +++ b/port/tools/test_whole_disc_folder.py
 @@ -181,11 +181 @@ class ReleaseTest(unittest.TestCase):
@@ -52,7 +52,7 @@ index e879fff7..3ee49b3f 100644
 -        self.assertIn("different releases", r.stderr)
 +        self.assertIn("retail-us", r.stderr)
 diff --git a/port/tools/whole_build_android.sh b/port/tools/whole_build_android.sh
-index e14fb5f2..c1c47356 100755
+index e14fb5f2d..c1c47356c 100755
 --- a/port/tools/whole_build_android.sh
 +++ b/port/tools/whole_build_android.sh
 @@ -157,2 +157,2 @@ done
@@ -64,7 +64,7 @@ index e14fb5f2..c1c47356 100755
 -if [ "$1" = armeabi-v7a ] || [ "$1" = arm64-v8a ]; then
 +if [ "$1" = armeabi-v7a ]; then
 diff --git a/port/tools/whole_disc_folder.py b/port/tools/whole_disc_folder.py
-index 0c1f28a1..910273e2 100644
+index 0c1f28a10..910273e20 100644
 --- a/port/tools/whole_disc_folder.py
 +++ b/port/tools/whole_disc_folder.py
 @@ -3,2 +3 @@
@@ -78,7 +78,7 @@ index 0c1f28a1..910273e2 100644
 -                     f"the port needs G4BE08 (debug build or US release), G4BP08 (European release) or G4BJ08 (Japanese release)")
 +                     f"the port needs G4BE08 (debug build), G4BP08 (European release) or G4BJ08 (Japanese release)")
 diff --git a/port/tools/whole_link_plan.py b/port/tools/whole_link_plan.py
-index 6073d652..2a762e49 100644
+index 6073d652d..2a762e49f 100644
 --- a/port/tools/whole_link_plan.py
 +++ b/port/tools/whole_link_plan.py
 @@ -154,0 +155 @@ def trampolines_asm(arch: str, names: list) -> str:
@@ -89,7 +89,7 @@ index 6073d652..2a762e49 100644
 +                    *([f"    orr r0, r0, #{k & 0xff00}"] if k > 0xff else []),
 +                    "#endif",
 diff --git a/port/tools/whole_prepare.py b/port/tools/whole_prepare.py
-index 7c8db608..16439376 100644
+index 7c8db6085..164393765 100644
 --- a/port/tools/whole_prepare.py
 +++ b/port/tools/whole_prepare.py
 @@ -293,0 +294,2 @@ SDK_C_ONLY_UNITS = ["mtx", "mtxvec", "mtx44", "mtx44vec", "vec", "quat"]
@@ -99,7 +99,7 @@ index 7c8db608..16439376 100644
 -                keep = m.group(1).startswith("C_")
 +                keep = m.group(1).startswith("C_") and m.group(1) not in SDK_C_REPLACED
 diff --git a/port/tools/whole_r100_check.sh b/port/tools/whole_r100_check.sh
-index 37641303..c63a6b3c 100755
+index 376413035..c63a6b3c7 100755
 --- a/port/tools/whole_r100_check.sh
 +++ b/port/tools/whole_r100_check.sh
 @@ -50,2 +50,2 @@
@@ -116,7 +116,7 @@ index 37641303..c63a6b3c 100755
 -        python3 "$src/port/tools/room_tour_report.py" --compare "$ref" "$json" --names "debug,${rel_suffix#-}" --messages |
 +        python3 "$src/port/tools/room_tour_report.py" --compare "$ref" "$json" --names "debug,eu" --messages |
 diff --git a/port/tools/whole_setup_linux.sh b/port/tools/whole_setup_linux.sh
-index 9bb7c3e2..02941c40 100755
+index 9bb7c3e2f..02941c40a 100755
 --- a/port/tools/whole_setup_linux.sh
 +++ b/port/tools/whole_setup_linux.sh
 @@ -24,3 +24 @@ need=()
@@ -129,7 +129,7 @@ index 9bb7c3e2..02941c40 100755
 -    libvulkan-dev vulkan-validationlayers spirv-tools glslang-tools; do
 +    libgles-dev libegl-dev libegl-mesa0 libgl1-mesa-dri mesa-vulkan-drivers libc++-dev libc++abi-dev; do
 diff --git a/port/whole/CMakeLists.txt b/port/whole/CMakeLists.txt
-index 4876dbef..a9160843 100644
+index 4876dbef3..a91608434 100644
 --- a/port/whole/CMakeLists.txt
 +++ b/port/whole/CMakeLists.txt
 @@ -61,0 +62,12 @@ add_compile_options(-ffp-contract=off)
@@ -221,7 +221,7 @@ index 4876dbef..a9160843 100644
 @@ -589 +633,0 @@ if(NOT ANDROID)
 -    target_compile_definitions(re4_instant_store_test PRIVATE RE4_BENCH_PLACE=\"${RE4_BENCH_PLACE}\")
 diff --git a/port/whole/host/coreproc.cpp b/port/whole/host/coreproc.cpp
-index 32b206d3..4684c2b7 100644
+index 32b206d3f..4684c2b7c 100644
 --- a/port/whole/host/coreproc.cpp
 +++ b/port/whole/host/coreproc.cpp
 @@ -2 +2 @@
@@ -354,7 +354,7 @@ index 32b206d3..4684c2b7 100644
 -    // as the Linux loader of re4_host: everything below 0x83000000 held, MEM1 first
 +    // as the Linux loader of re4_host: everything below MEM1's end held, MEM1 first
 diff --git a/port/whole/host/loader.c b/port/whole/host/loader.c
-index 42c72e44..f39ba203 100644
+index 42c72e44d..f39ba203a 100644
 --- a/port/whole/host/loader.c
 +++ b/port/whole/host/loader.c
 @@ -231,0 +232,5 @@ int main(int argc, char** argv)
@@ -366,7 +366,7 @@ index 42c72e44..f39ba203 100644
 @@ -232,0 +238 @@ int main(int argc, char** argv)
 +    releaseRanges(&hold);
 diff --git a/port/whole/host/low_memory.h b/port/whole/host/low_memory.h
-index 98792ac1..32d1b529 100644
+index 98792ac1b..32d1b5292 100644
 --- a/port/whole/host/low_memory.h
 +++ b/port/whole/host/low_memory.h
 @@ -24,0 +25,3 @@
@@ -481,7 +481,7 @@ index 98792ac1..32d1b529 100644
 @@ -103 +190,0 @@ static void reserveLowMemory(void)
 -    reserve(cursor, MEM1_START);
 diff --git a/port/whole/host/main.cpp b/port/whole/host/main.cpp
-index 82c68357..1a79a041 100644
+index 82c68357f..1a79a0416 100644
 --- a/port/whole/host/main.cpp
 +++ b/port/whole/host/main.cpp
 @@ -27,8 +26,0 @@
@@ -623,7 +623,7 @@ index 82c68357..1a79a041 100644
 @@ -457 +344,0 @@ extern "C" __attribute__((visibility("default"))) int re4_host_main(int argc, ch
 -    startDevice();
 diff --git a/port/whole/include/re4_card_port.h b/port/whole/include/re4_card_port.h
-index f10186db..ad279070 100644
+index f10186dbe..ad2790703 100644
 --- a/port/whole/include/re4_card_port.h
 +++ b/port/whole/include/re4_card_port.h
 @@ -18,2 +18,5 @@
@@ -635,10 +635,10 @@ index f10186db..ad279070 100644
 +#define __gUnknown800030E3 (*(volatile unsigned char*) (unsigned long) (RE4_MEM1_BASE + 0x30E3u))
 +#define __gUnknown800030C0 ((volatile int*) (unsigned long) (RE4_MEM1_BASE + 0x30C0u))
 diff --git a/port/whole/include/re4_gx_fifo.h b/port/whole/include/re4_gx_fifo.h
-index 24be4c3d..6970beb8 100644
+index 24be4c3df..6de608847 100644
 --- a/port/whole/include/re4_gx_fifo.h
 +++ b/port/whole/include/re4_gx_fifo.h
-@@ -27,0 +28,84 @@ void re4_gx_put_f32(float v);
+@@ -27,0 +28,106 @@ void re4_gx_put_f32(float v);
 +
 +#if defined(__3DS__)
 +/* The register shadow on the game's side (stage 3.6): with the GX thread (3.5) the decoder's shadow is
@@ -649,11 +649,33 @@ index 24be4c3d..6970beb8 100644
 + * them; a display list once one was seen with register commands: re4_gxq_list_regs). Generation 0: not
 + * known (a register that acts on each write, a masked write); re4_gxq_gen ~0: the shadow off
 + * (RE4_3DS_RINGSHADOW=0, or no GX thread). runtime/gx_fifo.cpp keeps it. */
-+extern unsigned int re4_gxq_gen;
-+extern unsigned int re4_gxq_bp_word[256], re4_gxq_bp_gen[256];
-+extern unsigned int re4_gxq_cp_word[256], re4_gxq_cp_gen[256];
-+extern unsigned char re4_gxq_masked;  /* a mask (BP 0xFE) waits: the next BP write goes */
++/* (B2) all in one structure: the inline checks take one address, not one for each */
++struct __attribute__((aligned(32))) re4_gxq_shadow {  /* a cache line of its own at the start */
++    unsigned int gen;
++    unsigned char masked;  /* a mask (BP 0xFE) waits: the next BP write goes */
++    unsigned char strides;  /* (B5) the array strides CP 0xB0-0xBF kept too (RE4_3DS_STRIDES) */
++    unsigned char dead_regs;  /* (C4) RE4_GX_DEAD below (RE4_3DS_DEADREGS) */
++    unsigned int bp_word[256], bp_gen[256];
++    unsigned int cp_word[256], cp_gen[256];
++    /* (B4) XF: memory 0x0000-0x07FF at 0, registers 0x1000-0x1057 at 0x800 */
++    unsigned int xf_word[0x858], xf_gen[0x858];
++};
++extern struct re4_gxq_shadow re4_gxq_s;
++#define re4_gxq_gen (re4_gxq_s.gen)
++#define re4_gxq_masked (re4_gxq_s.masked)
++#define re4_gxq_bp_word (re4_gxq_s.bp_word)
++#define re4_gxq_bp_gen (re4_gxq_s.bp_gen)
++#define re4_gxq_cp_word (re4_gxq_s.cp_word)
++#define re4_gxq_cp_gen (re4_gxq_s.cp_gen)
++#define re4_gxq_xf_word (re4_gxq_s.xf_word)
++#define re4_gxq_xf_gen (re4_gxq_s.xf_gen)
 +extern int re4_gxq_list_regs;
++/* (C4, patch 0343) BP registers no one reads on the 3DS (neither the decoder nor the renderer), left out in the GX
++ * library: bit 1 the rasteriser's texture sizes 0x30-0x3F (__GXSetSUTexRegs), 2 GXSetDstAlpha's 0x42, 4 a texture's
++ * image1 / image2 (the TMEM cache's addresses). Elsewhere 0: the reference renderer and the dumps see them. */
++#define RE4_GX_DEAD(bit) (re4_gxq_s.dead_regs & (bit))
++#else
++#define RE4_GX_DEAD(bit) 0
 +#endif
 +
 +#if defined(__3DS__) && !defined(RE4_GX_FIFO_OUTLINE)
@@ -723,7 +745,7 @@ index 24be4c3d..6970beb8 100644
 +#define re4_gx_put_s32(v) re4_gx_put_u32_inline((unsigned int) (v))
 +#define re4_gx_put_f32(v) re4_gx_put_f32_inline((float) (v))
 +#endif
-@@ -29,0 +114,76 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
+@@ -29,0 +136,84 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
 +/* A hint to the decoder (command 0x03): 1 the vertex arrays set are file data (3DS cache). */
 +void re4_gx_put_hint(unsigned int hint);
 +/* Register writes of the GX library (patch 0153, the 3DS): straight into the decoder's state when
@@ -760,24 +782,29 @@ index 24be4c3d..6970beb8 100644
 +    return re4_gx_shadow_on == 1 && (re4_gx_cp_regs[1] & 0x10) && !re4_gx_window;
 +}
 +
++/* (B3) Only the ring's shadow on the game's side here: the decoder's (written by the GX thread at each write; with the
++ * GX thread never ready) is asked in the functions themselves, on the way without the GX thread. */
 +static inline void re4_gx_put_bp_inline(unsigned int value)
 +{
-+    if (re4_gx_bp_shadow[value >> 24] == value && re4_gx_shadow_ready()) {
-+        return;
-+    }
 +    if (re4_gxq_bp_word[value >> 24] == value && re4_gxq_bp_gen[value >> 24] == re4_gxq_gen && !re4_gxq_masked) {
 +        return;  /* in the ring already (stage 3.6) */
 +    }
 +    (re4_gx_put_bp)(value);
 +}
 +
++/* (B3) the CP registers the decoder's shadow knows (gx_decode.cpp cpWrite sets re4_gx_cp_known for these); (B5) and
++ * the array strides 0xB0-0xBF: only GXSetArray writes one, right after its base (0xA0+, never kept), and in the decoder
++ * a stride resets what the base did already */
++static inline int re4_gx_cp_kept(unsigned int reg)
++{
++    return reg == 0x30 || reg == 0x40 || reg == 0x50 || reg == 0x60 || (reg >= 0x70 && reg < 0xA0) ||
++           ((reg & 0xF0) == 0xB0 && re4_gxq_s.strides);
++}
++
 +static inline void re4_gx_put_cp_inline(unsigned int reg, unsigned int value)
 +{
 +    reg &= 0xFF;
-+    if (re4_gx_cp_known[reg] && re4_gx_cp_shadow[reg] == value && re4_gx_shadow_ready()) {
-+        return;
-+    }
-+    if (re4_gx_cp_known[reg] && re4_gxq_cp_word[reg] == value && re4_gxq_cp_gen[reg] == re4_gxq_gen) {
++    if (re4_gx_cp_kept(reg) && re4_gxq_cp_word[reg] == value && re4_gxq_cp_gen[reg] == re4_gxq_gen) {
 +        return;  /* in the ring already (stage 3.6) */
 +    }
 +    (re4_gx_put_cp)(reg, value);
@@ -785,13 +812,16 @@ index 24be4c3d..6970beb8 100644
 +
 +static inline void re4_gx_put_xf_inline(unsigned int head, const void* words)
 +{
-+    const unsigned int address = head & 0xFFFF, count = (head >> 16) + 1;
-+    const unsigned int* slot = address + count <= 0x800 ? re4_gx_xf_mem + address
-+                               : address >= 0x1000 && address + count <= 0x1058 ? re4_gx_xf_reg + (address - 0x1000)
-+                                                                                 : 0;
-+    /* (C1, step 2) the decoder's shadow asked first: with the GX thread it is off, no memcmp */
-+    if (slot && re4_gx_shadow_ready() && __builtin_memcmp(slot, words, 4 * count) == 0) {
-+        return;
++    if ((head >> 16) == 0) {  /* (B4) one word: in the ring already (queuedXf's test, here) */
++        const unsigned int address = head & 0xFFFF;
++        const unsigned int at = address < 0x800 ? address
++                                : address >= 0x1000 && address < 0x1058 ? address - 0x1000 + 0x800
++                                                                        : 0x858;
++        unsigned int w;
++        __builtin_memcpy(&w, words, 4);
++        if (at != 0x858 && re4_gxq_xf_word[at] == w && re4_gxq_xf_gen[at] == re4_gxq_gen) {
++            return;
++        }
 +    }
 +    (re4_gx_put_xf)(head, words);
 +}
@@ -801,7 +831,7 @@ index 24be4c3d..6970beb8 100644
 +#define re4_gx_put_xf(h, w) re4_gx_put_xf_inline((unsigned int) (h), (w))
 +#endif
 diff --git a/port/whole/include/re4_ppc.h b/port/whole/include/re4_ppc.h
-index f561cbc2..05fd6e48 100644
+index f561cbc2e..05fd6e484 100644
 --- a/port/whole/include/re4_ppc.h
 +++ b/port/whole/include/re4_ppc.h
 @@ -40,0 +41,26 @@ static inline int re4_gqr_scale(unsigned field)
@@ -848,7 +878,7 @@ index f561cbc2..05fd6e48 100644
 @@ -57,0 +97 @@ static inline int re4_quantize(float f, float lo, float hi)
 +#endif
 diff --git a/port/whole/include/re4_whole_prelude.h b/port/whole/include/re4_whole_prelude.h
-index 8b91e2ae..c04a4bd9 100644
+index 8b91e2ae6..c04a4bd9d 100644
 --- a/port/whole/include/re4_whole_prelude.h
 +++ b/port/whole/include/re4_whole_prelude.h
 @@ -7,0 +8,6 @@
@@ -950,14 +980,14 @@ index 8b91e2ae..c04a4bd9 100644
 @@ -153,0 +153 @@ static inline void* re4_arc_entry(const void* table, const void* arc, unsigned i
 +#endif
 diff --git a/port/whole/lp64_sizes.json b/port/whole/lp64_sizes.json
-index 0269d7dc..9687f92a 100644
+index 0269d7dc0..9687f92a8 100644
 --- a/port/whole/lp64_sizes.json
 +++ b/port/whole/lp64_sizes.json
 @@ -82 +82 @@
 -    {"files": ["src/game/main_mem.cpp"], "text": "SysMem.Heap_end_addr = 0x817F4000;", "expr": "0x817F4000",
 +    {"files": ["src/game/main_mem.cpp"], "text": "SysMem.Heap_end_addr = RE4_GC(0x817F4000);", "expr": "0x817F4000",
 diff --git a/port/whole/runtime/ai.cpp b/port/whole/runtime/ai.cpp
-index 3c53a13f..ec1bcc98 100644
+index 3c53a13f1..ec1bcc985 100644
 --- a/port/whole/runtime/ai.cpp
 +++ b/port/whole/runtime/ai.cpp
 @@ -14,6 +14,2 @@
@@ -1057,7 +1087,7 @@ index 3c53a13f..ec1bcc98 100644
 -        gLearn = gLearn > kMaxLearn ? kMaxLearn : gLearn < -kMaxLearn ? -kMaxLearn : gLearn;
 -    }
 diff --git a/port/whole/runtime/aram.cpp b/port/whole/runtime/aram.cpp
-index 1a25459b..d7bc04c8 100644
+index 1a25459ba..32fb46984 100644
 --- a/port/whole/runtime/aram.cpp
 +++ b/port/whole/runtime/aram.cpp
 @@ -8,0 +9 @@
@@ -1074,10 +1104,19 @@ index 1a25459b..d7bc04c8 100644
 +            logged = true;
 +            re4_log("ARAM: DMA with the physical address 0x%08x", addr);
 +        }
-@@ -70,0 +82 @@ bool dma(u32 type, u32 mainAddr, u32 aramAddr, u32 length)
+@@ -69,0 +81,8 @@ bool dma(u32 type, u32 mainAddr, u32 aramAddr, u32 length)
++    // (RE4_SND_ARAMQ, 2026-11-26) the stream refill from inside the audio interrupt: into ARAM in the order of the
++    // DSP's lists behind the game, without waiting for them; ARAM read back: the writes queued first
++    if (type == 0 && re4_os_in_interrupt() && re4_dsp_aram_write(aramAddr, mem, length)) {
++        return true;
++    }
++    if (type != 0) {
++        re4_dsp_aram_flush();
++    }
+@@ -70,0 +90 @@ bool dma(u32 type, u32 mainAddr, u32 aramAddr, u32 length)
 +        re4_dsp_drain();  // the DSP's lists behind (RE4_DSP_BEHIND) read the samples there as they were
 diff --git a/port/whole/runtime/cheats.cpp b/port/whole/runtime/cheats.cpp
-index f94b6915..92082b0a 100644
+index f94b69154..a7eba1b8d 100644
 --- a/port/whole/runtime/cheats.cpp
 +++ b/port/whole/runtime/cheats.cpp
 @@ -17,8 +16,0 @@
@@ -1089,10 +1128,14 @@ index f94b6915..92082b0a 100644
 -//                       attacks, is set with it. Bosses and room scripts that attack by themselves still can.
 -// 1024 random items     (wish of the project owner, 07.11.2026, issue #161) the items lying in the story's rooms
 -//                       dealt anew, the seed in bits 11..30 (the app's; patch 0218, re4_item_random below)
-@@ -32,2 +23,0 @@
+@@ -30 +22,2 @@
+-//   2 attache case L (item 0x7E; the case grows when it is opened next, as after buying it)
++//   2 attache case XL (item 0x7F, as ss_shop.cpp buyItem: board_next 3; the smaller cases go; the case grows when it
++//     is opened next) - 2026-11-27 (was: case L); on the 3DS unused (its settings row gone the same day)
+@@ -32,2 +24,0 @@
 -//   5..9 more weapons at their highest levels (wish of the project owner, 01.11.2026; kGifts): Handcannon,
 -//     Chicago Typewriter, the endless rocket launcher, the Mine Thrower with its scope, Matilda
-@@ -41,19 +30,0 @@
+@@ -41,19 +31,0 @@
 -// The story's player character (wish of the project owner, 03.11.2026; port/docs/cheat-menu-plan.md,
 -// "Spielfiguren"): bits 32..224 of the switches hold a player type (pl_type << 5: 2 Ada, 3 HUNK, 4
 -// Krauser, 5 Wesker; 0 Leon). Patch 0195 asks here: the room that loads next (gameRoomInit, before ReadPlayerData)
@@ -1112,9 +1155,9 @@ index f94b6915..92082b0a 100644
 -// the melee block 0x2B4..0x2BD (the empty entries made a motion of the REL behind the table: the animation
 -// stood still, the Ganado slid about). The character's entries are read from its Mercenaries file once
 -// (loadStandInSet) and stand in for the story's. The X button commands Ashley (wait / follow) as with Leon.
-@@ -61 +31,0 @@
+@@ -61 +32,0 @@
 -#include "atari.h"
-@@ -67,10 +37,5 @@
+@@ -67,10 +38,9 @@
 -#include "dvd.h"
 -#include "read.h"
 -#include "scheduler.h"
@@ -1130,18 +1173,22 @@ index f94b6915..92082b0a 100644
 +#include "room_data.h"  // (8.3) RoomData.checkPassed
 +#include "stage.h"  // (8.3d) checkSubMissionTarget, the medallions
 +#include "minimap_game.h"  // (8.3) the map screen's rules (stage83_minimap_gen.py)
-@@ -79 +43,0 @@
++#include "puzzle.h"  // (2026-11-27) piece_info: the case's item sizes
++#include "pl_sub.h"  // (2026-11-27) PlMotionReset
++#include "../3ds/inventory_share.h"  // (2026-11-27) the bottom screen's inventory
++#include <math.h>
+@@ -79 +48,0 @@
 -#include <stdint.h>
-@@ -85 +48,0 @@ extern "C" void re4_log(const char* fmt, ...);
+@@ -85 +53,0 @@ extern "C" void re4_log(const char* fmt, ...);
 -extern "C" void re4_formats_part_loaded(const char* name, int nest, int index, const void* part, unsigned addr);
-@@ -90 +52,0 @@ int re4CheatPerform(int what);
+@@ -90 +57,0 @@ int re4CheatPerform(int what);
 -int PlSetCostume();  // pl_sub.cpp
-@@ -94,3 +56 @@ namespace {
+@@ -94,3 +61 @@ namespace {
 -enum { kHealth = 1, kAmmo = 2, kOneHit = 4, kAutoQte = 8, kExtras = 16, kCharShift = 5, kChar = 7 << kCharShift,
 -       kCostume = 256, kInvisible = 512, kItemRandom = 1024, kSeedShift = 11, kSeedMask = 0xFFFFF << kSeedShift,
 -       kAll = 31 | kChar | kCostume | kInvisible | kItemRandom | kSeedMask };
 +enum { kHealth = 1, kAmmo = 2, kOneHit = 4, kAutoQte = 8, kExtras = 16, kAll = 31 };
-@@ -102,33 +61,0 @@ int gHooked;
+@@ -102,33 +66,0 @@ int gHooked;
 -// pl_type's names (the log, the story's player character)
 -const char* const kCharName[8] = {"Leon", "Ashley", "Ada", "HUNK", "Krauser", "Wesker", "?", "?"};
 -
@@ -1175,21 +1222,24 @@ index f94b6915..92082b0a 100644
 -    }
 -    return 0;
 -}
-@@ -138,3 +64,0 @@ const char* actionName(int what)
+@@ -138,3 +69,0 @@ const char* actionName(int what)
 -    if (const Gift* g = gift(what)) {
 -        return g->name;
 -    }
-@@ -141,0 +66,2 @@ const char* actionName(int what)
+@@ -141,0 +71,2 @@ const char* actionName(int what)
 +    case 1:
 +        return "Killer7 3/1/3/3";
-@@ -205,2 +131 @@ void apply(int wanted)
+@@ -143 +74 @@ const char* actionName(int what)
+-        return "attache case L";
++        return "attache case XL";
+@@ -205,2 +136 @@ void apply(int wanted)
 -    } const bits[] = {{kHealth, DBG_NO_DEATH}, {kAmmo, DBG_INF_BULLET}, {kOneHit, DBG_EM_WEAK},
 -                      {kInvisible, DBG_EM_NO_ATK}};
 +    } const bits[] = {{kHealth, DBG_NO_DEATH}, {kAmmo, DBG_INF_BULLET}, {kOneHit, DBG_EM_WEAK}};
-@@ -215 +140 @@ void apply(int wanted)
+@@ -215 +145 @@ void apply(int wanted)
 -        re4_log("cheat: health %s, ammo %s, one-hit kill %s, automatic QTEs %s, extra games %s, the story's player %s",
 +        re4_log("cheat: health %s, ammo %s, one-hit kill %s, automatic QTEs %s, extra games %s",
-@@ -217,16 +142 @@ void apply(int wanted)
+@@ -217,16 +147 @@ void apply(int wanted)
 -                wanted & kAutoQte ? "on" : "off", wanted & kExtras ? "kept unlocked" : "as the system file has them",
 -                kCharName[(wanted & kChar) >> kCharShift]);
 -        if ((wanted ^ gApplied) & kCostume) {
@@ -1207,10 +1257,10 @@ index f94b6915..92082b0a 100644
 -            }
 -        }
 +                wanted & kAutoQte ? "on" : "off", wanted & kExtras ? "kept unlocked" : "as the system file has them");
-@@ -248 +158 @@ void apply(int wanted)
+@@ -248 +163 @@ void apply(int wanted)
 -        // (tester picture 05.11.2026: gaps in her life meter, 0.98.4)
 +        // (upstream 0.98.4, be298310: gaps in her life meter)
-@@ -259,4 +169,3 @@ void apply(int wanted)
+@@ -259,4 +174,3 @@ void apply(int wanted)
 -// Ashley's life above her maximum while she is the partner: the game never does that (healing stops at the
 -// maximum), but infinite health before 0.98.4 did in Ashley's own part (see apply), and saves keep it. Her
 -// life meter (cockpit.cpp LifeMeter::move: two covers turned by life / 200, made for at most 1200) then turned
@@ -1218,12 +1268,12 @@ index f94b6915..92082b0a 100644
 +// Ashley's life above her maximum while she is the partner (upstream 0.98.4): the game never does that, infinite
 +// health in Ashley's own part did, and saves keep it; her life meter (cockpit.cpp LifeMeter::move) then showed gaps.
 +// Put back to her maximum, logged.
-@@ -273,2 +182,2 @@ void repairPartnerLife()
+@@ -273,2 +187,2 @@ void repairPartnerLife()
 -        re4_log("cheat: Ashley's life %d above her maximum %d (infinite health in her own part before 0.98.4): "
 -                "set to %d", (int) life, (int) max, (int) max);
 +        re4_log("cheat: Ashley's life %d above her maximum %d (infinite health in her own part): set to %d", (int) life,
 +                (int) max, (int) max);
-@@ -278 +187,19 @@ void repairPartnerLife()
+@@ -278 +192,19 @@ void repairPartnerLife()
 -void switchNow();
 +// (R2, the 3DS settings screen) +1 000 000 pesetas once armed: when Leon has been free for a second (the room's
 +// game loop, no event, no sub screen, no movie), as RE4_TEST_CHEATS free+60,3 of the tests
@@ -1244,10 +1294,10 @@ index f94b6915..92082b0a 100644
 +        re4CheatPerform(3);
 +    }
 +}
-@@ -291 +218 @@ void hook(unsigned)
+@@ -291 +223 @@ void hook(unsigned)
 -    switchNow();
 +    moneyStep();  // (R2)
-@@ -298,654 +224,0 @@ void hook(unsigned)
+@@ -298,654 +229,0 @@ void hook(unsigned)
 -// ---- the story's player character ------------------------------------------------------------
 -
 -// Leon's player archive for a stand-in (the events, the radio screen, what the character's archive
@@ -1902,7 +1952,7 @@ index f94b6915..92082b0a 100644
 -    }
 -}
 -
-@@ -954,27 +226,0 @@ void dealRoom(SCE_AT_DATA* work, int num)
+@@ -954,27 +231,0 @@ void dealRoom(SCE_AT_DATA* work, int num)
 -extern "C" {
 -// Patch 0218 (sce_at.cpp sceAtSetItem): the room's items dealt once, at the first of its item areas set up.
 -// `head` the room's ITA file (SceAtSys.pItemData, a former room's when this one has none), `work` its records.
@@ -1930,13 +1980,13 @@ index f94b6915..92082b0a 100644
 -int re4_story_ganado;
 -}
 -
-@@ -993,3 +239,2 @@ int re4CheatPerform(int what)
+@@ -993,3 +244,2 @@ int re4CheatPerform(int what)
 -    // swaps the pesetas; a stand-in of the story plays with Leon's), only in the room's game loop and
 -    // outside the sub screens
 -    if ((pG->pl_type != 0 && !standIn()) || pG->Rno0 != 3 || StaFlagChk(pG, STA_SUB_SCRN) || StaFlagChk(pG, STA_MOVIE_ON)) {
 +    // swaps the pesetas), only in the room's game loop and outside the sub screens
 +    if (pG->pl_type != 0 || pG->Rno0 != 3 || StaFlagChk(pG, STA_SUB_SCRN) || StaFlagChk(pG, STA_MOVIE_ON)) {
-@@ -1002,8 +247,2 @@ int re4CheatPerform(int what)
+@@ -1002,8 +252,2 @@ int re4CheatPerform(int what)
 -    case 1:
 -    case 5:
 -    case 6:
@@ -1947,10 +1997,10 @@ index f94b6915..92082b0a 100644
 -        cItem* p = ItemMgr.search(g->id);
 +    case 1: {
 +        cItem* p = ItemMgr.search(0x2A);
-@@ -1012 +251 @@ int re4CheatPerform(int what)
+@@ -1012 +256 @@ int re4CheatPerform(int what)
 -        } else if (!ItemMgr.get(g->id, 0) || !(p = ItemMgr.search(g->id))) {
 +        } else if (!ItemMgr.get(0x2A, 0) || !(p = ItemMgr.search(0x2A))) {
-@@ -1016,17 +255,6 @@ int re4CheatPerform(int what)
+@@ -1016,17 +260,6 @@ int re4CheatPerform(int what)
 -        // the part, as the case attaches it (the project owner's test, 01.11.2026: the Mine Thrower given as
 -        // item 0xAB "with scope" had no shape in the case, which dropped it on closing)
 -        if (g->part && ItemMgr.weaponId(p) == g->id) {
@@ -1974,28 +2024,70 @@ index f94b6915..92082b0a 100644
 +        p->setReloadLevel(WeaponId2MaxLevel(0x2A, 2) - 1);
 +        p->setBulletLevel(WeaponId2MaxLevel(0x2A, 3) - 1);
 +        u16 full = WeaponId2ChargeNum(0x2A, p->getBulletLevel() + 1);
-@@ -1034,4 +262 @@ int re4CheatPerform(int what)
+@@ -1034,4 +267 @@ int re4CheatPerform(int what)
 -            p->bullet = (u16) ((p->bullet & 0xE000) | (full & 0x1FFF));
 -        }
 -        if (ItemMgr.weapon() == p) {
 -            ItemMgr.arm(p);
 +            p->bullet = (u16) ((p->bullet & 0xE000) | full);
-@@ -1070,2 +295 @@ extern "C" {
+@@ -1043,3 +273,3 @@ int re4CheatPerform(int what)
+-    case 2:
+-        if (ItemMgr.search(0x7E) || ItemMgr.search(0x7F)) {
+-            re4_log("cheat: %s: the case is L or XL already", actionName(what));
++    case 2: {
++        if (ItemMgr.search(0x7F)) {
++            re4_log("cheat: %s: the case is XL already", actionName(what));
+@@ -1047,0 +278,3 @@ int re4CheatPerform(int what)
++        // (2026-11-27) the XL first, the smaller cases after it: a full inventory keeps the case it had
++        int had = ItemMgr.search(0x7E) ? 0x7E : ItemMgr.search(0x7D) ? 0x7D : ItemMgr.search(0x7C) ? 0x7C : 0;
++        bool got = ItemMgr.get(0x7F, 0) != 0;
+@@ -1050 +283,8 @@ int re4CheatPerform(int what)
+-        if (!ItemMgr.get(0x7E, 0)) {
++        ItemMgr.dump(0x7E);
++        if (!got) {
++            got = ItemMgr.get(0x7F, 0) != 0;  // (the smaller one's place)
++        }
++        if (!got) {
++            if (had) {
++                ItemMgr.get((u16) had, 0);
++            }
+@@ -1054,3 +294,3 @@ int re4CheatPerform(int what)
+-        // as after buying it (ss_shop.cpp buyItem): the case grows when it is opened next
+-        SubScreenWk.board_next = 2;
+-        re4_log("cheat: %s added (case size %d, grows to 2 when opened)", actionName(what), SubScreenWk.board_size);
++        // as after buying it (ss_shop.cpp buyItem, 0x7F): the case grows to XL when it is opened next
++        SubScreenWk.board_next = 3;
++        re4_log("cheat: %s added (case size %d, grows to 3 when opened)", actionName(what), SubScreenWk.board_size);
+@@ -1057,0 +298 @@ int re4CheatPerform(int what)
++    }
+@@ -1070,2 +311,7 @@ extern "C" {
 -// Patch 0204 (em.cpp, em10.cpp): the cheat "Invisibility" (any thread; the game frames read it).
 -int re4_invisible(void)
-+void re4_cheats_set(int bits)
-@@ -1073,2 +297 @@ int re4_invisible(void)
++// (2026-11-27) the 3DS settings: "All weapons at the merchant" (patch 0386,
++// game/merchant.cpp re4ShopOffer - read when the shop opens)
++volatile int re4_merchant_weapons;
++
++// (2026-11-27) the case's items and their sizes in cells (the game's piece_info) - for the inventory's pictures
++// (3ds/icons_3ds.cpp); the count
++int re4_case_piece_sizes(unsigned short* ids, unsigned char* sx, unsigned char* sy, int max)
+@@ -1073,2 +319,7 @@ int re4_invisible(void)
 -    const int wanted = gWanted.load(std::memory_order_relaxed);
 -    return wanted > 0 && (wanted & kInvisible) ? 1 : 0;
-+    gWanted.store(bits & kAll, std::memory_order_release);
-@@ -1077 +300,2 @@ int re4_invisible(void)
--void re4_cheats_set(int bits)
++    int n = 0;
++    for (const ITEM_PIECE_INFO* p = piece_info; p->id != 0xFFFF && n < max; p++, n++) {
++        ids[n] = p->id;
++        sx[n] = (unsigned char) p->data.size_x;
++        sy[n] = (unsigned char) p->data.size_y;
++    }
++    return n;
+@@ -1081,0 +333,6 @@ void re4_cheats_set(int bits)
 +// (R2, the 3DS settings screen) +1 000 000 pesetas when Leon is next free for a second (moneyStep)
 +void re4_cheats_money_arm(void)
-@@ -1079 +303 @@ void re4_cheats_set(int bits)
--    gWanted.store(bits & kAll, std::memory_order_release);
++{
 +    gMoneyArmed.store(1, std::memory_order_release);
-@@ -1101,24 +325,37 @@ int re4_cheat_perform(int what)
++}
++
+@@ -1101,24 +358,61 @@ int re4_cheat_perform(int what)
 -// runtime/state_trace.cpp configure (static init and the core's start): the frame hook (the
 -// switches in every frame, queued buttons)
 -void re4_cheats_install(void)
@@ -2028,6 +2120,30 @@ index f94b6915..92082b0a 100644
 +volatile int re4_hud_lang = -1;  // (stage 9) the game's language for the screen's text (pSys->language)
 +volatile int re4_hud_title;      // (R2) the game at its title (STA_TITLE): the 3DS settings screen
 +volatile int re4_hud_room = -1;  // (R1) the room (none at the title) for the 3DS crash file (3ds/crash_3ds.cpp)
++volatile int re4_wep_want;  // (2026-11-27, patch 0385) the 3DS D-pad: the item id of the weapon asked for, 0 none
++volatile unsigned char re4_wep_slot[4];  // the D-pad's weapons (up, down, left, right): item ids, 0 none (3ds settings)
++volatile unsigned char re4_wep_owned[24];  // Leon's weapons in the case (hudSample, every 8th frame), in its slots' order
++volatile int re4_wep_owned_n;
++volatile int re4_wep_equipped;  // the equipped one's item id (0: none)
++volatile int re4_wep_owned_ok;  // the list is Leon's own case (not Ashley's turn, not the shooting gallery's)
++volatile int re4_option_close;  // (patch 0385) the 3DS bottom screen closes the game's option screen (its next frame)
++volatile int re4_top_hud_off;    // (2026-11-27, patch 0383) the life / ammo HUD off the top screen (3ds settings)
++volatile int re4_hud_option;     // (2026-11-27) the game's option screen open (Rno0 6): the 3DS settings shown
++unsigned gHudFrameNo, gOptionAskedAt;  // (2026-11-27) hudSample's frames; the gear's request at (0: none)
++
++// (2026-11-27, patch 0384) the 3DS settings' gear: the game's option screen asked for, as by START - taken by the
++// game's START test (game.cpp gameMainLoop) in this frame or the next; later (the case open, an event): dropped
++void re4_option_request(void)
++{
++    gOptionAskedAt = gHudFrameNo + 1;
++}
++
++int re4_option_request_take(void)
++{
++    const unsigned at = gOptionAskedAt;
++    gOptionAskedAt = 0;
++    return at && gHudFrameNo + 1 - at <= 1;
++}
 +
 +// (stage 8.3, the 3DS) The minimap's state (3ds/minimap_3ds.cpp), taken on the game's thread: the area (-1 none),
 +// its file, rooms and their state (mm::color) every 10 frames, Leon's room, position and a point 1000 ahead when he
@@ -2057,13 +2173,15 @@ index f94b6915..92082b0a 100644
 +            re4_mm_area = -1;
 +            __sync_synchronize();
 +            re4_mm_seq++;
-@@ -1128,191 +365,2 @@ void re4_story_char_room(void)
+@@ -1128,5 +422,2 @@ void re4_story_char_room(void)
 -    int costume = wantedCostume();
 -    if (costume >= 0 && costume != pG->game_costume) {
 -        re4_log("cheat: the %s costume from r%03x on", costume ? "special" : "normal", (unsigned) pG->room_id);
 -        pG->game_costume = (u8) costume;
 -        PlSetCostume();
--    }
++    if (StaFlagChk(pG, STA_SUB_SCRN)) {  // (the room's memory swapped out)
++        return;
+@@ -1134,7 +425,5 @@ void re4_story_char_room(void)
 -    gCostumeGiven = costume == 1;
 -    int want = wantedChar();
 -    int type = pG->pl_type;
@@ -2071,7 +2189,12 @@ index f94b6915..92082b0a 100644
 -        type = want;
 -    } else if (type >= 2 && type <= 5 && type == gSwitched && type != want) {
 -        type = want;  // the cheat off (0) or another character
--    }
++    const bool full = n++ % 10 == 0;
++    const float pos[3] = {pPL->mat[0][3], pPL->mat[1][3], pPL->mat[2][3]};
++    const float moved = fabsf(pos[0] - last[0]) + fabsf(pos[1] - last[1]) + fabsf(pos[2] - last[2]);
++    if (!full && moved < 100.0f) {  // (10 cm: the map's redraw costs the panel's thread milliseconds)
++        return;
+@@ -1142,8 +431,73 @@ void re4_story_char_room(void)
 -    if (type != pG->pl_type) {
 -        re4_log("cheat: the story's player is %s from r%03x on (was %s)", kCharName[type], (unsigned) pG->room_id,
 -                kCharName[pG->pl_type]);
@@ -2080,192 +2203,6 @@ index f94b6915..92082b0a 100644
 -        ReleaseWepData();
 -        PlSetCostume();
 -        pG->pl_flag |= 1;
--    }
--    if (standIn()) {
--        loadLeon(leonCostume());
--        loadStandInSet(pG->pl_type);
--        if (pG->pl_type == 2) {
--            loadAdaGrips();
--        }
--    }
--    re4_story_ganado = standIn() && gSetType == pG->pl_type;
--}
--
--// Patch 0222 (game.cpp GameContinue, right after GameSave.load): the continue point of a stand-in holds Leon
--// (re4_story_char_save), but the stand-in's player is still in memory: its type again, so that PlSetCostume and
--// ContinueWepData take its tables and its weapon buffer. Leon's weapon place (WEP_DATA_ADDR) lies inside Krauser's
--// player archive with his player module; a weapon changed since the save was read there, and OSLink crashed on the
--// overwritten module list (user report 09.11.2026, "crashing every time they die or retry"). The room start
--// (re4_story_char_room) changes the character as before when the cheat menu asks for another one.
--void re4_story_char_continue(void)
--{
--    if (gSwitched >= 2 && gSwitched <= 5 && pG->pl_type == 0 && storyGame()) {
--        pG->pl_type = (u8) gSwitched;
--        re4_log("cheat: continue with %s (the continue point holds Leon)", kCharName[gSwitched]);
--    }
--}
--
--// 1 while Ada, HUNK, Krauser or Wesker plays the story for Leon (the instant save allows them, 04.11.2026)
--int re4_story_char_stand_in(void)
--{
--    return standIn();
--}
--
--// Leon's player archive while a stand-in plays the story (0 otherwise, or when it could not be read)
--void* re4_story_char_leon(void)
--{
--    return standIn() && gLeonCostume >= 0 ? (void*) (unsigned long) kLeonArcAddr : 0;
--}
--
--// Patch 0211 (em10.cpp em10_R1_ShotRocket): the model (tpl 0) or texture (tpl 1) of the rocket a Ganado fires,
--// which the original takes from the player's archive (index 0x70 / 0x71). Ada, Krauser and Wesker have none there
--// (lacksRocket): Leon's archive at kLeonArcAddr (read for the stand-ins' story and, for this, for The Mercenaries
--// and the extra games: re4_story_char_room). The player's own entry otherwise, as in the original.
--void* re4_ganado_rocket(int tpl)
--{
--    const unsigned no = tpl ? 0x71 : 0x70;
--    const PlArc* own = pG->pPlayer;
--    void* entry = (void*) (size_t) (own->ofs[no] + (u32) (size_t) own);
--    if (!lacksRocket(pG->pl_type) || gLeonCostume < 0) {
--        return entry;
--    }
--    const PlArc* leon = (const PlArc*) (unsigned long) kLeonArcAddr;
--    static int logged;
--    if (!logged) {
--        logged = 1;
--        re4_log("ganado rocket: %s's archive has no rocket, Leon's model and texture (patch 0211)",
--                kCharName[pG->pl_type & 7]);
--    }
--    return (void*) (size_t) (leon->ofs[no] + kLeonArcAddr);
--}
--
--// 1 while the stand-in takes Leon's costume rule (HUNK, Krauser, Wesker: their archives have one
--// costume; Ada's pl_costume picks her own, pl0b or pl0c)
--int re4_story_char_leon_costume(void)
--{
--    return standIn() && pG->pl_type != 2;
--}
--
--// Leon's costume by his rule while a stand-in plays the story (the vest of PlIsArmor), else -1
--int re4_story_char_costume(void)
--{
--    return standIn() ? leonCostume() : -1;
--}
--
--// 1 when weapon number `no` is none of the stand-in's own: Leon's file is read (read.cpp ReadWepData),
--// the sub screen shows the character without a weapon (ss_model.cpp)
--int re4_story_char_leon_weapon(int no)
--{
--    return standIn() && !ownWeapon(pG->pl_type, no, no == pG->weapon_no ? pG->weapon_type : 0);
--}
--
--// Patch 0196 (pl02.cpp cPlAda::setRightHand): Ada's own grip hand for the weapon she holds when it is one
--// of Leon's (his grip hand is made for his skeleton: on hers it stood beside the weapon), 0 otherwise or
--// when its file could not be read
--void* re4_story_char_grip(void)
--{
--    if (!standIn() || pG->pl_type != 2 || !re4_story_char_leon_weapon(pG->weapon_no)) {
--        return 0;
--    }
--    int k = adaGripOf(pG->weapon_no);
--    if (!(gAdaGrips & (1 << k))) {
--        return 0;
--    }
--    const PlArc* arc = (const PlArc*) (unsigned long) kAdaGripAddr[k];
--    return (void*) (size_t) (arc->ofs[kAdaGripNo[k]] + kAdaGripAddr[k]);
--}
--
--// Patch 0196 (pl02.cpp cPlAda::setLeftHand): Ada's own left hand for Leon's weapon that brings a support hand
--// of its own (his handguns: a model made for his skeleton): 4 the handgun's, 1 the TMP's, 2 the rifle's
--int re4_story_char_left_grip(void)
--{
--    static const int kLeft[3] = {4, 1, 2};
--    return kLeft[adaGripOf(pG->weapon_no)];
--}
--
--// Patch 0200 (cam_extra.cpp CameraScope, CameraBinocular; cam_ctrl.cpp StartLookDownEm): the eyes of HUNK
--// standing in for Leon. His model has none at parts 0x20/0x21 (0x20 at his chest, 0x21 at the root), the
--// first-person cameras looked from his hips; `out` becomes the point where Leon's eyes sit in the head part 4
--// (measured: 0, 76, 85 for Leon, Wesker alike, Krauser 0, 81, 85; the head part is the same bone for all).
--// 1 when it did.
--int re4_story_char_eyes(Vec* out)
--{
--    static const Vec kEyes = {0.0f, 76.0f, 85.0f};
--    if (!pG || !pPL || !standIn() || pG->pl_type != 3 || pPL->nParts <= 4) {
--        return 0;
--    }
--    PSMTXMultVec(pPL->getPartsPtr(4)->mat, &kEyes, out);
--    return 1;
--}
--
--// Krauser's weapon buffer when gameInit made none (he took over a story started with Leon)
--void* re4_story_char_wep_place(void)
--{
--    return (void*) (unsigned long) kWepPlaceAddr;
--}
--
--// Entry `no` of the player archive `arc` that its table lacks (an empty tag, or past the table;
--// re4_whole_prelude.h re4_arc_entry): Leon's, while a stand-in plays the story and from index 0x1B on
--// (the motions and the props behind the models: the radio 0x77..0x79, the rocket 0x70..0x76, the
--// whistle 0x7C); `v` is what the table gives otherwise. Leon's props 0x70..0x7C also when the
--// character's table has its own there, while it holds one of Leon's weapons: Krauser's arrow and arm
--// (wep28) are at 0x70..0x73, where Leon has the rocket and the mines (his mine thrower stopped in
--// modelInit with Krauser's motions as a model). Each index once in the log.
--void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
--{
--    void* fallback = (void*) (size_t) (unsigned int) (v + (unsigned int) (size_t) arc);
--    // a Ganado archive (0x2BA entries) while a stand-in plays the story: the character's own entry
--    // (loadStandInSet). The entry whose data the game takes: an empty tag shares the next entry's (the last
--    // with that offset); the melee block 0x2B4..0x2BD by its own number (the story's files lack it, em20's
--    // empty ones share its chainsaw walk 0x2BC)
--    if (no - kSetLo <= kSetHi - kSetLo && gSetType > 0 && pG && arc != (const void*) pG->pPlayer && standIn() &&
--        gSetType == pG->pl_type && ((const u32*) arc)[0] == 0x2BA) {
--        const u32* ofs = (const u32*) arc;
--        unsigned k = no;
--        if (no < kMeleeFirst && ofs[no] != ofs[1]) {
--            while (k < kSetHi && ofs[k + 1] == ofs[no]) {
--                k++;
--            }
--        }
--        u32 at = gSetEntry[k - kSetLo];
--        if (at) {
--            static u8 logged[(kSetHi - kSetLo + 8) / 8];
--            unsigned bit = no - kSetLo;
--            if (!(logged[bit >> 3] & (1 << (bit & 7)))) {
--                logged[bit >> 3] |= (u8) (1 << (bit & 7));
--                re4_log("cheat: %s plays: Ganado archive index 0x%x from %s (own move%s)", kCharName[pG->pl_type & 7],
--                        no, kStandInSet[pG->pl_type - 2].file, k != no ? ", shared entry" : "");
--            }
--            return (void*) (size_t) at;
--        }
--        if (no >= kMeleeFirst || no - 4 >= ofs[0]) {
--            return fallback;
--        }
--    }
--    if (no < 0x1B || no >= 0x100 || !pG || arc != (const void*) pG->pPlayer || !re4_story_char_leon()) {
--        return fallback;
--    }
--    const u32* ofs = pG->pPlayer->ofs;
--    bool lacks = no - 4 >= ofs[0] || ofs[ofs[0] + no] == 0;
--    if (!lacks && !(no - 0x70u <= 0xCu && re4_story_char_leon_weapon(pG->weapon_no))) {
--        return fallback;
-+    if (StaFlagChk(pG, STA_SUB_SCRN)) {  // (the room's memory swapped out)
-+        return;
-@@ -1320,5 +368,5 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
--    static u8 logged[0x100 / 8];
--    if (!(logged[no >> 3] & (1 << (no & 7)))) {
--        logged[no >> 3] |= (u8) (1 << (no & 7));
--        re4_log("cheat: %s plays: player archive index 0x%x from Leon's (%s)", kCharName[pG->pl_type & 7], no,
--                lacks ? "its own lacks it" : "a prop of his weapon");
-+    const bool full = n++ % 10 == 0;
-+    const float pos[3] = {pPL->mat[0][3], pPL->mat[1][3], pPL->mat[2][3]};
-+    const float moved = fabsf(pos[0] - last[0]) + fabsf(pos[1] - last[1]) + fabsf(pos[2] - last[2]);
-+    if (!full && moved < 100.0f) {  // (10 cm: the map's redraw costs the panel's thread milliseconds)
-+        return;
-@@ -1326,3 +374,71 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
--    PlArc* leon = (PlArc*) (unsigned long) kLeonArcAddr;
--    if (no - 4 >= leon->ofs[0]) {
--        return fallback;
 +    re4_mm_seq++;
 +    __sync_synchronize();
 +    for (int k = 0; k < 3; k++) {
@@ -2326,36 +2263,517 @@ index f94b6915..92082b0a 100644
 +    re4_mm_seq++;
 +}
 +
-+static void hudSample(unsigned)
++extern "C++" {
++int re4WepPickable(cItem* p);                    // game/sscrn.cpp (patch 0385)
++const char* re4WepFileName(int no, int type);
++}
++extern "C" void re4_dvd_weapon_want(const char* const* names, int n);  // runtime/dvd.cpp
++
++// (2026-11-27) the D-pad weapons: Leon's weapons for the bottom screen, the files of the arrows' and the equipped
++// one for the read-ahead (the game's thread; outside the sub screens)
++static void wepSample()
 +{
-+    // (R2) the title and the language for the 3DS settings screen, before the gameplay too
-+    re4_hud_title = pG && StaFlagChk(pG, STA_TITLE) ? 1 : 0;
-+    if (pSys) {
-+        re4_hud_lang = (int) pSys->language;
-+    }
-+    if (!pG || pG->Rno0 != 3 || !pPL) {
-+        re4_hud_life = -1;
-+        re4_hud_room = pG && !StaFlagChk(pG, STA_TITLE) ? (int) pG->room_id : -1;  // (R1)
++    static unsigned n;
++    if (n++ % 8 != 0) {
 +        return;
-@@ -1330,12 +446,3 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
--    return (void*) (size_t) (leon->ofs[no] + kLeonArcAddr);
+@@ -1151,5 +505,12 @@ void re4_story_char_room(void)
+-    if (standIn()) {
+-        loadLeon(leonCostume());
+-        loadStandInSet(pG->pl_type);
+-        if (pG->pl_type == 2) {
+-            loadAdaGrips();
++    cItemMgr* im = &ItemMgr;
++    int k = 0;
++    if (pG->pl_type == 0) {
++        for (int i = 0; i < im->m_array_num && k < 24; i++) {
++            cItem* p = im->at(i);
++            bool dup = false;  // (one tile a weapon: grenades of one kind in two cells of the case are one)
++            for (int j = 0; j < k && !dup && p; j++) {
++                dup = re4_wep_owned[j] == p->id;
++            }
++            if (!dup && re4WepPickable(p) && p->id < 0x100) {
++                re4_wep_owned[k++] = (unsigned char) p->id;
++            }
+@@ -1158,14 +519,19 @@ void re4_story_char_room(void)
+-    re4_story_ganado = standIn() && gSetType == pG->pl_type;
 -}
 -
+-// Patch 0222 (game.cpp GameContinue, right after GameSave.load): the continue point of a stand-in holds Leon
+-// (re4_story_char_save), but the stand-in's player is still in memory: its type again, so that PlSetCostume and
+-// ContinueWepData take its tables and its weapon buffer. Leon's weapon place (WEP_DATA_ADDR) lies inside Krauser's
+-// player archive with his player module; a weapon changed since the save was read there, and OSLink crashed on the
+-// overwritten module list (user report 09.11.2026, "crashing every time they die or retry"). The room start
+-// (re4_story_char_room) changes the character as before when the cheat menu asks for another one.
+-void re4_story_char_continue(void)
+-{
+-    if (gSwitched >= 2 && gSwitched <= 5 && pG->pl_type == 0 && storyGame()) {
+-        pG->pl_type = (u8) gSwitched;
+-        re4_log("cheat: continue with %s (the continue point holds Leon)", kCharName[gSwitched]);
++    re4_wep_owned_n = k;
++    re4_wep_owned_ok = pG->pl_type == 0 && pG->room_id != 0x22C && pG->room_id != 0x31D ? 1 : 0;
++    re4_wep_equipped = pG->pl_type == 0 && im->weapon() ? im->weapon()->id : 0;
++    const char* names[5];  // (the wish every 8th frame: an arrow's weapon just chosen is read at once)
++    int w = 0;
++    for (int s = 0; s < 5 && pG->pl_type == 0; s++) {
++        cItem* p = s < 4 ? (re4_wep_slot[s] ? im->search(re4_wep_slot[s]) : 0) : im->weapon();
++        if (!p || !re4WepPickable(p)) {
++            continue;
++        }
++        const u16 id = im->weaponId(p);
++        const char* f = re4WepFileName(WeaponId2WeaponNo(id), WeaponId2WeaponType(id));
++        bool dup = !f;
++        for (int j = 0; j < w && !dup; j++) {
++            dup = strcmp(names[j], f) == 0;
++        }
++        if (!dup) {
++            names[w++] = f;
++        }
+@@ -1172,0 +539 @@ void re4_story_char_continue(void)
++    re4_dvd_weapon_want(names, w);
+@@ -1175,5 +542,8 @@ void re4_story_char_continue(void)
+-// 1 while Ada, HUNK, Krauser or Wesker plays the story for Leon (the instant save allows them, 04.11.2026)
+-int re4_story_char_stand_in(void)
+-{
+-    return standIn();
+-}
++// (2026-11-27) the bottom screen's inventory (3ds/inventory_share.h): Leon's case every 4th frame - each item's
++// rectangle as the case lays it (pzlPiece: the centre turned with the orientation, the top-left cell = the position
++// minus it, the signed size of the orientation), its flags and its number; and a touch's request (re4_inv_tap)
++volatile int re4_inv_tap;
++volatile unsigned re4_inv_gen;
++static Re4Inv gInv[2];
++static std::atomic<int> gInvPub(-1);
++static bool gInvForce;  // (2026-11-27) the next invSample at once (an edit done)
+@@ -1181,2 +551 @@ int re4_story_char_stand_in(void)
+-// Leon's player archive while a stand-in plays the story (0 otherwise, or when it could not be read)
+-void* re4_story_char_leon(void)
++static void invSample()
+@@ -1184,14 +553,3 @@ void* re4_story_char_leon(void)
+-    return standIn() && gLeonCostume >= 0 ? (void*) (unsigned long) kLeonArcAddr : 0;
+-}
+-
+-// Patch 0211 (em10.cpp em10_R1_ShotRocket): the model (tpl 0) or texture (tpl 1) of the rocket a Ganado fires,
+-// which the original takes from the player's archive (index 0x70 / 0x71). Ada, Krauser and Wesker have none there
+-// (lacksRocket): Leon's archive at kLeonArcAddr (read for the stand-ins' story and, for this, for The Mercenaries
+-// and the extra games: re4_story_char_room). The player's own entry otherwise, as in the original.
+-void* re4_ganado_rocket(int tpl)
+-{
+-    const unsigned no = tpl ? 0x71 : 0x70;
+-    const PlArc* own = pG->pPlayer;
+-    void* entry = (void*) (size_t) (own->ofs[no] + (u32) (size_t) own);
+-    if (!lacksRocket(pG->pl_type) || gLeonCostume < 0) {
+-        return entry;
++    static unsigned n;
++    if (n++ % 4 != 0 && !gInvForce) {  // (2026-11-27: at once after an edit)
++        return;
+@@ -1199,6 +557,103 @@ void* re4_ganado_rocket(int tpl)
+-    const PlArc* leon = (const PlArc*) (unsigned long) kLeonArcAddr;
+-    static int logged;
+-    if (!logged) {
+-        logged = 1;
+-        re4_log("ganado rocket: %s's archive has no rocket, Leon's model and texture (patch 0211)",
+-                kCharName[pG->pl_type & 7]);
++    gInvForce = false;
++    const int w = gInvPub.load(std::memory_order_relaxed) == 0 ? 1 : 0;
++    Re4Inv& v = gInv[w];
++    static const unsigned char kDim[4][2] = {{10, 6}, {11, 7}, {12, 8}, {15, 8}};
++    const int bs = SubScreenWk.board_size <= 3 ? SubScreenWk.board_size : 0;
++    v.cols = kDim[bs][0], v.rows = kDim[bs][1], v.n = 0;
++    cItemMgr* im = &ItemMgr;
++    for (int i = 0; pG->pl_type == 0 && i < im->m_array_num && i < 256 && v.n < 64; i++) {
++        cItem* p = im->at(i);
++        if (!p || !p->isAlive(0)) {  // (2026-11-27: the spare board's too - the tray)
++            continue;
++        }
++        const ITEM_PIECE_INFO* q = piece_info;
++        while (q->id != 0xFFFF && q->id != p->id) {
++            q++;
++        }
++        if (q->id == 0xFFFF) {
++            continue;
++        }
++        const int o = p->orient & 7;
++        float cx = q->data.center_x, cy = q->data.center_y;
++        if (o > 3) {
++            cx = -cx;
++        }
++        for (int k = 0; k < (o & 3); k++) {
++            const float t = cx;
++            cx = -cy, cy = t;
++        }
++        const int vx = (int) floorf(p->x * 0.5f - cx + 0.5f), vy = (int) floorf(p->y * 0.5f - cy + 0.5f);
++        static const signed char kSx[8] = {1, -2, -1, 2, -1, -2, 1, 2}, kSy[8] = {2, 1, -2, -1, 2, -1, -2, 1};
++        const int sx = kSx[o] == 1 ? q->data.size_x : kSx[o] == -1 ? -q->data.size_x : kSx[o] == 2 ? q->data.size_y : -q->data.size_y;
++        const int sy = kSy[o] == 1 ? q->data.size_x : kSy[o] == -1 ? -q->data.size_x : kSy[o] == 2 ? q->data.size_y : -q->data.size_y;
++        Re4InvItem& e = v.it[v.n];
++        const int x0 = sx > 0 ? vx : vx + sx + 1, y0 = sy > 0 ? vy : vy + sy + 1;
++        if (p->board && (x0 < 0 || y0 < 0 || x0 + abs(sx) > v.cols || y0 + abs(sy) > v.rows)) {
++            continue;  // (not inside the case: never seen so far)
++        }
++        e.id = p->id, e.slot = (unsigned char) i, e.x0 = (unsigned char) x0, e.y0 = (unsigned char) y0;
++        e.w = (unsigned char) abs(sx), e.h = (unsigned char) abs(sy), e.orient = (unsigned char) o;
++        const int type = itemType(p->id);
++        const bool heals = type == 6 && p->id != 0x19 && p->id != 0x1C && p->id != 0xA8;
++        e.flags = (unsigned char) ((p == im->weapon() ? 1 : 0) | (re4WepPickable(p) ? 2 : 0) | (heals ? 4 : 0));
++        e.count = type == 1 ? (short) (p->bullet & 0x1FFF) : p->num > 1 ? (short) p->num : (short) -1;
++        e.type = (unsigned char) type, e.pad = 0;  // (2026-11-27, the edits)
++        e.ammo = type == 1 ? (unsigned short) WeaponId2BulletId(p->id, p->getBulletType()) : 0;
++        if (p != im->weapon() && type != 0xE) {
++            e.flags |= 8;
++        }
++        if (!p->board) {  // (the tray)
++            e.flags |= 16, e.x0 = 0, e.y0 = 0;
++        }
++        v.n++;
++    }
++    unsigned h = 2166136261u;
++    const unsigned char* b = (const unsigned char*) &v.n;
++    for (size_t k = 0; k < sizeof(int) * 3; k++) {
++        h = (h ^ b[k]) * 16777619u;
++    }
++    b = (const unsigned char*) v.it;
++    for (size_t k = 0; k < sizeof(Re4InvItem) * v.n; k++) {
++        h = (h ^ b[k]) * 16777619u;
++    }
++    v.gen = h;
++    gInvPub.store(w, std::memory_order_release);
++    re4_inv_gen = h;
++}
++
++// a touch of an item: a weapon - asked of the D-pad's way (patch 0385: refused where the case could not open); a
++// healing item - used now when Leon is free (as the case's "Use": for Leon), else dropped
++static void invTapStep()
++{
++    const int t = re4_inv_tap;
++    if (!t) {
++        return;
++    }
++    re4_inv_tap = 0;
++    cItemMgr* im = &ItemMgr;
++    const int slot = (t >> 16) - 1, id = t & 0xFFFF;
++    cItem* p = slot >= 0 && slot < im->m_array_num ? im->at(slot) : 0;
++    if (!p || p->id != id || !p->isAlive(0) || pG->pl_type != 0) {
++        return;
++    }
++    if (re4WepPickable(p)) {
++        if (p != im->weapon()) {
++            re4_wep_want = p->id;
++        }
++        return;
++    }
++    const int type = itemType(p->id);
++    if (type != 6 || p->id == 0x19 || p->id == 0x1C || p->id == 0xA8) {
++        return;
++    }
++    const bool free = pG->Rno0 == 3 && !StaFlagChk(pG, STA_EVENT) && !StaFlagChk(pG, STA_SUB_SCRN) &&
++                      !StaFlagChk(pG, STA_MOVIE_ON);
++    if (!free) {
++        re4_log("inventory: item 0x%02x not now", id);
++        return;
++    }
++    const int life = pG->pl_life;
++    im->setToWhom(0);
++    const int used = im->use(p);
++    if (used) {
++        PlMotionReset();
+@@ -1206 +661 @@ void* re4_ganado_rocket(int tpl)
+-    return (void*) (size_t) (leon->ofs[no] + kLeonArcAddr);
++    re4_log("inventory: item 0x%02x %s (life %d -> %d)", id, used ? "used" : "refused by the game", life, (int) pG->pl_life);
+@@ -1209,3 +664 @@ void* re4_ganado_rocket(int tpl)
+-// 1 while the stand-in takes Leon's costume rule (HUNK, Krauser, Wesker: their archives have one
+-// costume; Ada's pl_costume picks her own, pl0b or pl0c)
+-int re4_story_char_leon_costume(void)
++extern "C" int re4_inv_copy(Re4Inv* out)
+@@ -1213 +666,6 @@ int re4_story_char_leon_costume(void)
+-    return standIn() && pG->pl_type != 2;
++    const int k = gInvPub.load(std::memory_order_acquire);
++    if (k < 0) {
++        return 0;
++    }
++    *out = gInv[k];
++    return 1;
+@@ -1216,2 +674,8 @@ int re4_story_char_leon_costume(void)
+-// Leon's costume by his rule while a stand-in plays the story (the vest of PlIsArmor), else -1
+-int re4_story_char_costume(void)
++// (2026-11-27) the inventory's edits (3ds/inventory_share.h): one a frame, here on the game's thread. The layout through a
++// pzlPlayer of its own as PutInCase does in the gameplay; an item its init could not lay (board 0: offboardDump would
++// erase it) - refused, the boards put back
++Re4InvOp re4_inv_op_req;
++volatile int re4_inv_op_seq, re4_inv_op_done, re4_inv_op_ok;
++volatile int re4_inv_ghost, re4_inv_drag, re4_inv_target, re4_inv_refused;  // (the touch too: 3ds/ui_bottom_3ds.cpp)
++
++extern "C" int re4_inv_table_combine(int a, int b)
+@@ -1219 +683,2 @@ int re4_story_char_costume(void)
+-    return standIn() ? leonCostume() : -1;
++    u16 c;
++    return itemCombine((ITEM_ID) a, (ITEM_ID) b, &c);
+@@ -1222,3 +687 @@ int re4_story_char_costume(void)
+-// 1 when weapon number `no` is none of the stand-in's own: Leon's file is read (read.cpp ReadWepData),
+-// the sub screen shows the character without a weapon (ss_model.cpp)
+-int re4_story_char_leon_weapon(int no)
++static cItem* invItem(int key)
+@@ -1226 +689,4 @@ int re4_story_char_leon_weapon(int no)
+-    return standIn() && !ownWeapon(pG->pl_type, no, no == pG->weapon_no ? pG->weapon_type : 0);
++    cItemMgr* im = &ItemMgr;
++    const int slot = (key >> 16) - 1, id = key & 0xFFFF;
++    cItem* p = slot >= 0 && slot < im->m_array_num ? im->at(slot) : 0;
++    return p && p->id == id && p->isAlive(0) ? p : 0;  // (in the case or on the spare board - the tray)
+@@ -1229,4 +695 @@ int re4_story_char_leon_weapon(int no)
+-// Patch 0196 (pl02.cpp cPlAda::setRightHand): Ada's own grip hand for the weapon she holds when it is one
+-// of Leon's (his grip hand is made for his skeleton: on hers it stood beside the weapon), 0 otherwise or
+-// when its file could not be read
+-void* re4_story_char_grip(void)
++static int invTry(pzlPiece* p, pzlBoard* b, int orient, int x, int y)
+@@ -1234,9 +697,5 @@ void* re4_story_char_grip(void)
+-    if (!standIn() || pG->pl_type != 2 || !re4_story_char_leon_weapon(pG->weapon_no)) {
+-        return 0;
+-    }
+-    int k = adaGripOf(pG->weapon_no);
+-    if (!(gAdaGrips & (1 << k))) {
+-        return 0;
+-    }
+-    const PlArc* arc = (const PlArc*) (unsigned long) kAdaGripAddr[k];
+-    return (void*) (size_t) (arc->ofs[kAdaGripNo[k]] + kAdaGripAddr[k]);
++    p->orientation(orient);
++    const int sx = p->size_x(), sy = p->size_y();
++    p->set_ver0_x((f32) (sx > 0 ? x : x - sx - 1));
++    p->set_ver0_y((f32) (sy > 0 ? y : y - sy - 1));
++    return b->putPiece(p);
+@@ -1245,3 +704 @@ void* re4_story_char_grip(void)
+-// Patch 0196 (pl02.cpp cPlAda::setLeftHand): Ada's own left hand for Leon's weapon that brings a support hand
+-// of its own (his handguns: a model made for his skeleton): 4 the handgun's, 1 the TMP's, 2 the rifle's
+-int re4_story_char_left_grip(void)
++static int invNextOrient(int o)
+@@ -1249,2 +706 @@ int re4_story_char_left_grip(void)
+-    static const int kLeft[3] = {4, 1, 2};
+-    return kLeft[adaGripOf(pG->weapon_no)];
++    return o <= 3 ? (o + 1) & 3 : 4 + ((o - 3) & 3);  // (a quarter clockwise, as pzlPiece::rotate(0))
+@@ -1253,6 +709,4 @@ int re4_story_char_left_grip(void)
+-// Patch 0200 (cam_extra.cpp CameraScope, CameraBinocular; cam_ctrl.cpp StartLookDownEm): the eyes of HUNK
+-// standing in for Leon. His model has none at parts 0x20/0x21 (0x20 at his chest, 0x21 at the root), the
+-// first-person cameras looked from his hips; `out` becomes the point where Leon's eyes sit in the head part 4
+-// (measured: 0, 76, 85 for Leon, Wesker alike, Krauser 0, 81, 85; the head part is the same bone for all).
+-// 1 when it did.
+-int re4_story_char_eyes(Vec* out)
++// `it` laid with `orient` in the case - its rectangle's top left at (x0, y0), or (spread > 0) at the nearest place that
++// fits around its rectangle now - or (toSpace) anywhere free on the spare board (the tray; turned once if it must); from
++// the case or the spare board; 1 laid and kept
++static int invPlace(cItem* it, int orient, int x0, int y0, int spread, bool toSpace)
+@@ -1260,2 +714,10 @@ int re4_story_char_eyes(Vec* out)
+-    static const Vec kEyes = {0.0f, 76.0f, 85.0f};
+-    if (!pG || !pPL || !standIn() || pG->pl_type != 3 || pPL->nParts <= 4) {
++    cItemMgr* im = &ItemMgr;
++    const int n = im->m_array_num < 256 ? im->m_array_num : 256;
++    static unsigned char was[256];
++    for (int i = 0; i < n; i++) {
++        was[i] = im->at(i)->board;
++    }
++    const int bs = SubScreenWk.board_size <= 3 ? SubScreenWk.board_size : 0;
++    pzlPlayer* pl = new pzlPlayer;
++    if (!pl->init(bs)) {
++        delete pl;
+@@ -1264,31 +726,28 @@ int re4_story_char_eyes(Vec* out)
+-    PSMTXMultVec(pPL->getPartsPtr(4)->mat, &kEyes, out);
+-    return 1;
+-}
+-
+-// Krauser's weapon buffer when gameInit made none (he took over a story started with Leon)
+-void* re4_story_char_wep_place(void)
+-{
+-    return (void*) (unsigned long) kWepPlaceAddr;
+-}
+-
+-// Entry `no` of the player archive `arc` that its table lacks (an empty tag, or past the table;
+-// re4_whole_prelude.h re4_arc_entry): Leon's, while a stand-in plays the story and from index 0x1B on
+-// (the motions and the props behind the models: the radio 0x77..0x79, the rocket 0x70..0x76, the
+-// whistle 0x7C); `v` is what the table gives otherwise. Leon's props 0x70..0x7C also when the
+-// character's table has its own there, while it holds one of Leon's weapons: Krauser's arrow and arm
+-// (wep28) are at 0x70..0x73, where Leon has the rocket and the mines (his mine thrower stopped in
+-// modelInit with Krauser's motions as a model). Each index once in the log.
+-void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
+-{
+-    void* fallback = (void*) (size_t) (unsigned int) (v + (unsigned int) (size_t) arc);
+-    // a Ganado archive (0x2BA entries) while a stand-in plays the story: the character's own entry
+-    // (loadStandInSet). The entry whose data the game takes: an empty tag shares the next entry's (the last
+-    // with that offset); the melee block 0x2B4..0x2BD by its own number (the story's files lack it, em20's
+-    // empty ones share its chainsaw walk 0x2BC)
+-    if (no - kSetLo <= kSetHi - kSetLo && gSetType > 0 && pG && arc != (const void*) pG->pPlayer && standIn() &&
+-        gSetType == pG->pl_type && ((const u32*) arc)[0] == 0x2BA) {
+-        const u32* ofs = (const u32*) arc;
+-        unsigned k = no;
+-        if (no < kMeleeFirst && ofs[no] != ofs[1]) {
+-            while (k < kSetHi && ofs[k + 1] == ofs[no]) {
+-                k++;
++    bool lost = false;
++    for (int i = 0; i < n; i++) {
++        if (was[i] && !im->at(i)->board) {
++            im->at(i)->board = was[i];
++            lost = true;
++        }
++    }
++    int ok = 0;
++    pzlPiece* p = lost ? 0 : pl->piecePtr(it);
++    pzlBoard* from = !p ? 0 : pl->boardPtr()->search(p) ? pl->boardPtr() : pl->spacePtr()->search(p) ? pl->spacePtr() : 0;
++    if (from) {
++        const f32 bx = p->m_pos_x, by = p->m_pos_y;
++        const int bo = p->m_orientation;
++        if (spread > 0) {  // (around its rectangle now)
++            const int sx = p->size_x(), sy = p->size_y();
++            x0 = sx > 0 ? (int) p->ver0_x() : (int) p->ver0_x() + sx + 1;
++            y0 = sy > 0 ? (int) p->ver0_y() : (int) p->ver0_y() + sy + 1;
++        }
++        pzlBoard* to = toSpace ? pl->spacePtr() : pl->boardPtr();
++        from->rmPiece(p);
++        if (toSpace) {
++            for (int k = 0; k < 2 && !ok; k++) {
++                const int o = k ? invNextOrient(orient) : orient;
++                for (int y = 0; y < to->size_y() && !ok; y++) {
++                    for (int x = 0; x < to->size_x() && !ok; x++) {
++                        ok = invTry(p, to, o, x, y);
++                    }
++                }
+@@ -1297,8 +756,8 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
+-        u32 at = gSetEntry[k - kSetLo];
+-        if (at) {
+-            static u8 logged[(kSetHi - kSetLo + 8) / 8];
+-            unsigned bit = no - kSetLo;
+-            if (!(logged[bit >> 3] & (1 << (bit & 7)))) {
+-                logged[bit >> 3] |= (u8) (1 << (bit & 7));
+-                re4_log("cheat: %s plays: Ganado archive index 0x%x from %s (own move%s)", kCharName[pG->pl_type & 7],
+-                        no, kStandInSet[pG->pl_type - 2].file, k != no ? ", shared entry" : "");
++        for (int r = 0; !toSpace && r <= spread && !ok; r++) {  // the rings: the place itself first, then nearer before farther
++            for (int dy = -r; dy <= r && !ok; dy++) {
++                for (int dx = -r; dx <= r && !ok; dx++) {
++                    if (dx != -r && dx != r && dy != -r && dy != r) {
++                        continue;
++                    }
++                    ok = invTry(p, to, orient, x0 + dx, y0 + dy);
++                }
+@@ -1306 +764,0 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
+-            return (void*) (size_t) at;
+@@ -1308,2 +766,11 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
+-        if (no >= kMeleeFirst || no - 4 >= ofs[0]) {
+-            return fallback;
++        if (!ok) {
++            p->orientation(bo);
++            p->m_pos_x = bx, p->m_pos_y = by;
++            from->putPiece(p);
++        } else {
++            pl->save();
++            for (int i = 0; i < n; i++) {  // (the others where they were)
++                if (im->at(i) != it && was[i] != im->at(i)->board) {
++                    im->at(i)->board = was[i];
++                }
++            }
+@@ -1312,19 +779,3 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
+-    if (no < 0x1B || no >= 0x100 || !pG || arc != (const void*) pG->pPlayer || !re4_story_char_leon()) {
+-        return fallback;
+-    }
+-    const u32* ofs = pG->pPlayer->ofs;
+-    bool lacks = no - 4 >= ofs[0] || ofs[ofs[0] + no] == 0;
+-    if (!lacks && !(no - 0x70u <= 0xCu && re4_story_char_leon_weapon(pG->weapon_no))) {
+-        return fallback;
+-    }
+-    static u8 logged[0x100 / 8];
+-    if (!(logged[no >> 3] & (1 << (no & 7)))) {
+-        logged[no >> 3] |= (u8) (1 << (no & 7));
+-        re4_log("cheat: %s plays: player archive index 0x%x from Leon's (%s)", kCharName[pG->pl_type & 7], no,
+-                lacks ? "its own lacks it" : "a prop of his weapon");
+-    }
+-    PlArc* leon = (PlArc*) (unsigned long) kLeonArcAddr;
+-    if (no - 4 >= leon->ofs[0]) {
+-        return fallback;
+-    }
+-    return (void*) (size_t) (leon->ofs[no] + kLeonArcAddr);
++    pl->quit();
++    delete pl;
++    return ok;
+@@ -1333,6 +784 @@ void* re4_arc_stand_in(const void* arc, unsigned int no, unsigned int v)
 -// Patch 0197 (player.h cPlayer::checkXbutton, pl_klauser.cpp): the X button of a stand-in while Ashley
 -// follows, as cPlLeon::checkXbutton (pl_leon.cpp) has it: "wait" / "follow" by turns, every 8 frames at
 -// most; the command flag on (the button's hint). Leon's call (SE 0x36 / 0x37 of the player's sound block) is
 -// left out: that block holds the character's own sounds. -1 without a stand-in or without Ashley (Krauser's
 -// arm attack keeps the button then), else 1 when a command was given.
 -int re4_story_char_xbutton(cPlayer* pl)
--{
++static void invOpStep()
+@@ -1340,2 +786,3 @@ int re4_story_char_xbutton(cPlayer* pl)
 -    if (!pG || !standIn() || pSUB == 0 || pSUB->id != 3) {
 -        return -1;
++    const int seq = re4_inv_op_seq;
++    if (seq == re4_inv_op_done) {
++        return;
+@@ -1343,2 +790,61 @@ int re4_story_char_xbutton(cPlayer* pl)
+-    if (pl->m_CmdTimer) {
+-        pl->m_CmdTimer--;
++    const Re4InvOp q = re4_inv_op_req;
++    cItemMgr* im = &ItemMgr;
++    const bool live = pG && pPL && pG->Rno0 == 3 && pG->pl_type == 0 && !StaFlagChk(pG, STA_SUB_SCRN);
++    const bool free = live && !StaFlagChk(pG, STA_EVENT) && !StaFlagChk(pG, STA_MOVIE_ON);
++    cItem* a = live ? invItem(q.a) : 0;
++    int ok = 0;
++    const char* why = live ? "" : " (not in the gameplay)";
++    if (a && q.kind == RE4_INV_MOVE) {
++        ok = invPlace(a, q.orient & 7, q.x0, q.y0, 0, false);
++    } else if (a && q.kind == RE4_INV_ROTATE) {
++        ok = a->board ? invPlace(a, invNextOrient(a->orient & 7), 0, 0, 8, false) : 0;
++    } else if (a && q.kind == RE4_INV_TRAY) {
++        ok = a->board ? invPlace(a, a->orient & 7, 0, 0, 0, true) : 0;  // (the user: aside for a while)
++    } else if (a && q.kind == RE4_INV_COMBINE) {
++        cItem* b = invItem(q.b);
++        const int ta = itemType(a->id), tb = b ? itemType(b->id) : 0;
++        if (!free || !b) {
++            why = " (Leon not free)";
++        } else if (((ta == 9 && tb == 1 && b == im->weapon()) || (tb == 9 && ta == 1 && a == im->weapon()))) {
++            why = " (a part onto the weapon in the hands)";
++        } else {
++            const int flag = (ta == 1 && tb == 2) || (ta == 2 && tb == 1) ? 1 : 0;  // (the user: ammo onto its weapon loads it)
++            ok = im->combine(b, a, flag);
++        }
++    } else if (a && q.kind == RE4_INV_DISCARD) {
++        if (!free) {
++            why = " (Leon not free)";
++        } else if (a == im->weapon() || itemType(a->id) == 0xE) {
++            why = " (the weapon in the hands / a file)";
++        } else {
++            ok = im->dumpAll(a);
++        }
++    }
++    re4_log("inventory: edit %d of 0x%02x (onto 0x%02x) %s%s", q.kind, q.a & 0xFFFF, q.b & 0xFFFF, ok ? "done" : "refused", why);
++    re4_inv_ghost = 0, re4_inv_drag = 0, re4_inv_target = 0;
++    re4_inv_refused = ok ? 0 : q.a;
++    if (ok) {
++        gInvForce = true;
++        invSample();
++    }
++    re4_inv_op_ok = ok;
++    re4_inv_op_done = seq;
++}
++
++static void hudSample(unsigned)
++{
++    invOpStep();  // (2026-11-27: the inventory's edits; refused outside the gameplay)
++    // (R2) the title and the language for the 3DS settings screen, before the gameplay too
++    re4_hud_title = pG && StaFlagChk(pG, STA_TITLE) ? 1 : 0;
++    re4_hud_option = pG && pG->Rno0 == 6 ? 1 : 0;  // (2026-11-27: the option screen)
++    gHudFrameNo++;
++    if (pSys) {
++        re4_hud_lang = (int) pSys->language;
++    }
++    if (pG && pG->Rno0 == 6 && pPL && !StaFlagChk(pG, STA_SUB_SCRN)) {  // (2026-11-27: over the option screen the D-pad weapons too)
++        wepSample();
++    }
++    if (!pG || pG->Rno0 != 3 || !pPL) {
++        re4_hud_life = -1;
++        re4_hud_room = pG && !StaFlagChk(pG, STA_TITLE) ? (int) pG->room_id : -1;  // (R1)
++        return;
+@@ -1346,3 +852,29 @@ int re4_story_char_xbutton(cPlayer* pl)
+-    StaFlagOn(pG, STA_SUBCHAR_CTRL);
+-    if (pl->m_CmdTimer != 0 || SubCharCheckCtrl() == 0 || !(Key.trg & 0x200)) {
+-        return 0;
 +    re4_hud_room = (int) pG->room_id;  // (R1)
 +    if (StaFlagChk(pG, STA_SUB_SCRN)) {  // (the room's memory swapped out: the numbers as they were)
 +        return;
-@@ -1343,2 +450,22 @@ int re4_story_char_xbutton(cPlayer* pl)
--    if (pl->m_CmdTimer) {
--        pl->m_CmdTimer--;
++    }
 +    re4_hud_life_max = (s16) pG->pl_life_max;
 +    re4_hud_life = (s16) pG->pl_life;
 +    if (pSUB && pSUB->id == 3) {
@@ -2366,6 +2784,9 @@ index f94b6915..92082b0a 100644
 +    }
 +    re4_hud_peseta = (int) pG->peseta;
 +    re4_hud_lang = pSys ? (int) pSys->language : -1;
++    wepSample();  // (2026-11-27, the D-pad weapons)
++    invSample();  // (2026-11-27, the inventory)
++    invTapStep();
 +    cItemMgr* im = &ItemMgr;
 +    const u16 wid = im->weaponId();
 +    const int type = wid ? itemType(wid) : 0;
@@ -2378,25 +2799,21 @@ index f94b6915..92082b0a 100644
 +    } else {
 +        re4_hud_ammo = -1;
 +        re4_hud_reserve = -1;
-@@ -1346,10 +472,0 @@ int re4_story_char_xbutton(cPlayer* pl)
--    StaFlagOn(pG, STA_SUBCHAR_CTRL);
--    if (pl->m_CmdTimer != 0 || SubCharCheckCtrl() == 0 || !(Key.trg & 0x200)) {
--        return 0;
--    }
+@@ -1350,6 +881,0 @@ int re4_story_char_xbutton(cPlayer* pl)
 -    bool wait = !(SubCharGetStatus() & 0x40000000);
 -    SubCharCtrl(wait ? 0 : 1, 0);
 -    re4_log("cheat: %s commands Ashley: %s", kCharName[pG->pl_type & 7], wait ? "wait" : "follow");
 -    pl->m_CmdTimer = 8;
 -    StaFlagOn(pG, STA_PL_FIRE);
 -    return 1;
-@@ -1358,3 +475,3 @@ int re4_story_char_xbutton(cPlayer* pl)
+@@ -1358,3 +884,3 @@ int re4_story_char_xbutton(cPlayer* pl)
 -// Patch 0195 (game.cpp cGameSave::save): the save holds Leon. `image` is the copy of the save block
 -// that starts at `start` (pG->save_data_start_addr).
 -void re4_story_char_save(u8* image, const u8* start)
 +// runtime/state_trace.cpp configure (static init and the core's start): the frame hook (the
 +// switches in every frame, queued buttons)
 +void re4_cheats_install(void)
-@@ -1362,2 +479,5 @@ void re4_story_char_save(u8* image, const u8* start)
+@@ -1362,2 +888,5 @@ void re4_story_char_save(u8* image, const u8* start)
 -    if (!standIn()) {
 -        return;
 +    if (!gHooked) {
@@ -2404,12 +2821,12 @@ index f94b6915..92082b0a 100644
 +        re4_add_frame_hook(hook);
 +        re4_add_frame_hook(hudSample);  // (8.4) the bottom screen's numbers
 +        re4_add_frame_hook(mmSample);   // (8.3) the minimap's
-@@ -1365,3 +484,0 @@ void re4_story_char_save(u8* image, const u8* start)
+@@ -1365,3 +893,0 @@ void re4_story_char_save(u8* image, const u8* start)
 -    image[(const u8*) &pG->pl_type - start] = 0;
 -    image[(const u8*) &pG->pl_costume - start] = (u8) leonCostume();
 -    re4_log("cheat: saved with Leon as the player (%s plays)", kCharName[pG->pl_type]);
 diff --git a/port/whole/runtime/core_api.cpp b/port/whole/runtime/core_api.cpp
-index a63e4cc6..264018b6 100644
+index a63e4cc62..264018b6a 100644
 --- a/port/whole/runtime/core_api.cpp
 +++ b/port/whole/runtime/core_api.cpp
 @@ -314,7 +313,0 @@ bool gGxAttached;
@@ -2534,7 +2951,7 @@ index a63e4cc6..264018b6 100644
 -}
 -
 diff --git a/port/whole/runtime/core_bridge.cpp b/port/whole/runtime/core_bridge.cpp
-index 57f0a153..ef398197 100644
+index 57f0a1532..ef3981979 100644
 --- a/port/whole/runtime/core_bridge.cpp
 +++ b/port/whole/runtime/core_bridge.cpp
 @@ -65,10 +65 @@ bool inMem1(const void* p)
@@ -2597,7 +3014,7 @@ index 57f0a153..ef398197 100644
 -    if (!live(arr) || stride == 0 || n > 4096 || (n != 0 && !live(arr + n * stride - 1))) {
 +    if (!live(arr) || stride == 0 || n > 4096) {
 diff --git a/port/whole/runtime/core_ipc_client.cpp b/port/whole/runtime/core_ipc_client.cpp
-index a12c8cc3..57ad0db3 100644
+index a12c8cc38..57ad0db32 100644
 --- a/port/whole/runtime/core_ipc_client.cpp
 +++ b/port/whole/runtime/core_ipc_client.cpp
 @@ -942,10 +941,0 @@ void re4ipc_set_potato(int mask)
@@ -2649,14 +3066,14 @@ index a12c8cc3..57ad0db3 100644
 -}
 -
 diff --git a/port/whole/runtime/dof.cpp b/port/whole/runtime/dof.cpp
-index 8f087799..2ca2aef5 100644
+index 8f0877993..2ca2aef53 100644
 --- a/port/whole/runtime/dof.cpp
 +++ b/port/whole/runtime/dof.cpp
 @@ -153 +153 @@ bool inMem1(const void* p)
 -    return a >= 0x80000000ul && a < 0x83000000ul;
 +    return RE4_IN_MEM1(a);
 diff --git a/port/whole/runtime/dolphin_os.cpp b/port/whole/runtime/dolphin_os.cpp
-index b9e8e92a..dabebee0 100644
+index b9e8e92aa..dabebee0c 100644
 --- a/port/whole/runtime/dolphin_os.cpp
 +++ b/port/whole/runtime/dolphin_os.cpp
 @@ -86,0 +87,6 @@ void OSReport(const char* fmt, ...)
@@ -2690,7 +3107,7 @@ index b9e8e92a..dabebee0 100644
 @@ -340,0 +363 @@ void PPCSync(void) {}
 +#endif
 diff --git a/port/whole/runtime/dsp.cpp b/port/whole/runtime/dsp.cpp
-index 192c5e62..738811e1 100644
+index 192c5e628..f48b4a70f 100644
 --- a/port/whole/runtime/dsp.cpp
 +++ b/port/whole/runtime/dsp.cpp
 @@ -31 +31,6 @@
@@ -3337,7 +3754,7 @@ index 192c5e62..738811e1 100644
 +    memcpy(gSurroundLast, gBus[S], sizeof(gSurroundLast));
 +    static s16 block[kFrame * 2];
 +    static s16 four[kFrame * 4];
-@@ -607,5 +1096,2 @@ void output(u32 surroundAddr, u32 blockAddr)
+@@ -607,5 +1096,5 @@ void output(u32 surroundAddr, u32 blockAddr)
 -        const s32 gain = gCompOn ? gCompGain[i] : 0x8000;
 -        sb->pcm[i * 4] = clamp16((s32) (((int64_t) gBus[L][i] * gain) >> 15));
 -        sb->pcm[i * 4 + 1] = clamp16((s32) (((int64_t) gBus[R][i] * gain) >> 15));
@@ -3345,10 +3762,10 @@ index 192c5e62..738811e1 100644
 -        sb->pcm[i * 4 + 3] = clamp16((s32) (((int64_t) (gRearMain[1][i] + gRearAux[1][i]) * gain) >> 15));
 +        block[i * 2] = gain16(stereoRight(i), i);
 +        block[i * 2 + 1] = gain16(stereoLeft(i), i);
-@@ -612,0 +1099,4 @@ void output(u32 surroundAddr, u32 blockAddr)
++    }
 +    if (gRearUsed) {
 +        fourChannels(four);
-+    }
+@@ -612,0 +1102 @@ void output(u32 surroundAddr, u32 blockAddr)
 +    re4_ai_play_block(block, gRearUsed ? four : nullptr);
 @@ -623,0 +1114 @@ void run(const u16* p)
 +    RE4_PROF_ZONE(RE4_PROF_DSP);
@@ -3376,7 +3793,61 @@ index 192c5e62..738811e1 100644
 +            } else {
 +                output(hilo(p[0], p[1]), hilo(p[2], p[3]));
 +            }
-@@ -676,0 +1180,183 @@ void run(const u16* p)
+@@ -676,0 +1180,247 @@ void run(const u16* p)
++// ---------------------------------------- the lists behind: ARAM writes in their order (RE4_SND_ARAMQ)
++// (2026-11-26) A DMA into ARAM from inside the audio interrupt (the sound driver's stream refill, game/snd_str2.cpp)
++// waited for the worker to run every list queued (re4_dsp_drain: the lists read the samples there as they were):
++// 4-7 ms in a refill frame on the 3DS, where the worker is a burst of lists behind. RE4_SND_ARAMQ=1: the block is
++// copied aside and written into ARAM by whoever runs the lists, right before the first list queued after it (the
++// worker in runQueued, or the game's thread in the next re4_dsp_drain): each list reads ARAM as it did with the
++// wait. Too long (kStageMost), no room (kStage bytes or kWrites writes pending), or no list in flight: as before.
++// 0: as before.
++int gAramQ;  // RE4_SND_ARAMQ
++const u32 kStage = 128 << 10, kStageMost = 32 << 10, kWrites = 16;
++struct AramWrite {
++    u32 list;  // the first list queued after it (gBehindPosted then): written before that one runs
++    u32 aram;
++    u32 length;
++    u32 at;  // its bytes in gStage from at % kStage (at counts every byte handed out)
++};
++AramWrite gWrites[kWrites];
++u8* gStage;
++std::atomic<u32> gWritesPosted{0}, gWritesDone{0};
++std::atomic<u32> gStageFree{0};  // gStage's bytes given back (the writer of the writes)
++u32 gStageUsed;                  // gStage's bytes handed out (the game's thread)
++// for the log (the game's side; gAqBefore: written right before a list, by the worker or the game's thread without
++// one; the rest by the game's thread in a drain): queued, too long, no room, the most pending
++u32 gAqQueued, gAqLong, gAqFull, gAqMost, gAqDrained;
++std::atomic<u32> gAqBefore{0};
++// a check: writes applied after a list that should have read them (0 by construction: a write is in gWrites before
++// the list after it is posted, and whoever runs list n applies every write due before it first)
++std::atomic<u32> gAqLate{0};
++
++// The writes queued before list `list` into ARAM (all: every one - the game's thread after the worker is done,
++// `list` then gBehindPosted). A write is due before list e.list: applied before a later one, it was late.
++void aramApply(u32 list, bool all)
++{
++    u8* const aram = re4_aram();
++    for (u32 w = gWritesDone.load(std::memory_order_relaxed); w != gWritesPosted.load(std::memory_order_acquire);
++         w++) {
++        const AramWrite& e = gWrites[w % kWrites];
++        if (!all && (int) (e.list - list) > 0) {
++            break;
++        }
++        if ((int) (list - e.list) > 0) {
++            gAqLate.fetch_add(1, std::memory_order_relaxed);
++        }
++        memcpy(aram + e.aram, gStage + e.at % kStage, e.length);
++        gStageFree.store(e.at + e.length, std::memory_order_release);
++        gWritesDone.store(w + 1, std::memory_order_release);
++        if (all) {
++            gAqDrained++;
++        } else {
++            gAqBefore.fetch_add(1, std::memory_order_relaxed);
++        }
++    }
++}
++
 +// ---------------------------------------- the lists behind: the queue
 +void runBehind(BehindFrame& f)
 +{
@@ -3398,6 +3869,9 @@ index 192c5e62..738811e1 100644
 +{
 +    for (u32 n = gBehindDone.load(std::memory_order_relaxed); n != gBehindPosted.load(std::memory_order_acquire);
 +         n++) {
++        if (gAramQ) {
++            aramApply(n, false);  // (RE4_SND_ARAMQ: the ARAM writes queued before this list)
++        }
 +        runBehind(gBehindFrames[n % kBehind]);
 +        gBehindDone.store(n + 1, std::memory_order_release);
 +    }
@@ -3500,6 +3974,13 @@ index 192c5e62..738811e1 100644
 +                gMismatches.load(std::memory_order_relaxed));
 +        gBehindFull = gBehindDrains = 0;
 +        gBehindWaitTicks = 0;
++        if (gAramQ) {
++            re4_log("dsp: ARAM writes through the lists' queue (RE4_SND_ARAMQ): %u queued (written before a list %u, "
++                    "in a drain %u), at most %u pending, %u late; as before: %u too long, %u without room",
++                    gAqQueued, gAqBefore.exchange(0, std::memory_order_relaxed), gAqDrained, gAqMost,
++                    gAqLate.exchange(0, std::memory_order_relaxed), gAqLong, gAqFull);
++            gAqQueued = gAqDrained = gAqMost = gAqLong = gAqFull = 0;
++        }
 +    }
 +    if (gPost) {
 +        gPost();
@@ -3560,7 +4041,7 @@ index 192c5e62..738811e1 100644
 +}
 +#endif
 +
-@@ -680,0 +1367,76 @@ extern "C" {
+@@ -680,0 +1431,131 @@ extern "C" {
 +// The DSP's lists on a thread of the app from the next one on: `post` wakes it (it then calls re4_dsp_work), `wait`
 +// returns once that call is done; both on the game's thread. nullptr: here again.
 +void re4_dsp_set_worker(void (*post)(void), void (*wait)(void))
@@ -3586,6 +4067,9 @@ index 192c5e62..738811e1 100644
 +{
 +    const u32 n = gBehindPosted.load(std::memory_order_relaxed);
 +    if (!gBehind || gBehindDone.load(std::memory_order_acquire) == n) {
++        if (gAramQ) {
++            aramApply(n, true);  // (RE4_SND_ARAMQ: the writes queued after the last list)
++        }
 +        return;
 +    }
 +    const long long t0 = OSGetTime();
@@ -3596,7 +4080,59 @@ index 192c5e62..738811e1 100644
 +    while (gBehindDone.load(std::memory_order_acquire) != n) {
 +        gWait();
 +    }
++    if (gAramQ) {
++        aramApply(n, true);  // (RE4_SND_ARAMQ: the worker is done; the writes queued after the last list)
++    }
 +    gBehindWaitTicks += OSGetTime() - t0;
++}
++
++// RE4_SND_ARAMQ (the game's thread, inside the audio interrupt): `length` bytes for ARAM at `aramAddr` into the
++// lists' queue (1), or not taken (0: the caller drains and copies, as before).
++int re4_dsp_aram_write(unsigned aramAddr, const void* src, unsigned length)
++{
++    if (!gAramQ || !gBehind || !gStage) {
++        return 0;
++    }
++    const u32 list = gBehindPosted.load(std::memory_order_relaxed);
++    if (gBehindDone.load(std::memory_order_acquire) == list) {
++        return 0;  // no list in flight: the drain does not wait
++    }
++    if (length > kStageMost) {
++        gAqLong++;
++        return 0;
++    }
++    const u32 posted = gWritesPosted.load(std::memory_order_relaxed);
++    u32 at = gStageUsed;
++    if (at % kStage + length > kStage) {
++        at += kStage - at % kStage;  // (a write lies in one piece: from the start)
++    }
++    if (posted - gWritesDone.load(std::memory_order_acquire) >= kWrites ||
++        at + length - gStageFree.load(std::memory_order_acquire) > kStage) {
++        gAqFull++;
++        return 0;
++    }
++    memcpy(gStage + at % kStage, src, length);
++    gWrites[posted % kWrites] = AramWrite{list, aramAddr, length, at};
++    gStageUsed = at + length;
++    gWritesPosted.store(posted + 1, std::memory_order_release);
++    gAqQueued++;
++    const u32 pending = posted + 1 - gWritesDone.load(std::memory_order_relaxed);
++    gAqMost = pending > gAqMost ? pending : gAqMost;
++    return 1;
++}
++
++// RE4_SND_ARAMQ: the writes queued so far (for the logs of checks).
++unsigned re4_dsp_aram_queued(void)
++{
++    return gWritesPosted.load(std::memory_order_relaxed);
++}
++
++// RE4_SND_ARAMQ: the writes queued are in ARAM (the game's thread, before it reads ARAM).
++void re4_dsp_aram_flush(void)
++{
++    if (gAramQ && gWritesDone.load(std::memory_order_acquire) != gWritesPosted.load(std::memory_order_relaxed)) {
++        re4_dsp_drain();
++    }
 +}
 +
 +int re4_dsp_behind(void)
@@ -3637,7 +4173,7 @@ index 192c5e62..738811e1 100644
 +    }
 +}
 +
-@@ -715,0 +1478,22 @@ void DSPInit(void)
+@@ -715,0 +1597,29 @@ void DSPInit(void)
 +    const char* behind = getenv("RE4_DSP_BEHIND");
 +    if (!gBehind && behind && *behind && *behind != '0') {
 +        const char* check = getenv("RE4_DSP_BEHIND_CHECK");
@@ -3645,6 +4181,13 @@ index 192c5e62..738811e1 100644
 +        gBehindCheck = check && *check && *check != '0';
 +        re4_log("dsp: the command lists run behind the game (RE4_DSP_BEHIND)%s",
 +                gBehindCheck ? ", the voices checked against advance()" : "");
++    }
++    const char* aramq = getenv("RE4_SND_ARAMQ");
++    if (gBehind && !gAramQ && aramq && *aramq && *aramq != '0') {
++        gStage = (u8*) malloc(kStage);
++        gAramQ = gStage != nullptr;
++        re4_log("dsp: ARAM writes from the audio interrupt through the lists' queue (RE4_SND_ARAMQ): %s",
++                gAramQ ? "on" : "off (no memory)");
 +    }
 +#if !defined(__3DS__)
 +    const char* thread = getenv("RE4_DSP_THREAD");
@@ -3660,7 +4203,7 @@ index 192c5e62..738811e1 100644
 +        re4_log("dsp: the command lists run on a thread of their own (RE4_DSP_THREAD)");
 +    }
 +#endif
-@@ -758,0 +1543,15 @@ void DSPSendMailToDSP(u32 mail)
+@@ -758,0 +1669,15 @@ void DSPSendMailToDSP(u32 mail)
 +        if (gBehind) {
 +            // the list behind: AX may start its next frame at once (its resume callback)
 +            postBehind(mail);
@@ -3676,11 +4219,11 @@ index 192c5e62..738811e1 100644
 +            gPost();
 +            return;
 +        }
-@@ -814,0 +1614,2 @@ DSPTaskInfo* DSPCancelTask(DSPTaskInfo* task)
+@@ -814,0 +1740,2 @@ DSPTaskInfo* DSPCancelTask(DSPTaskInfo* task)
 +    re4_dsp_drain();
 +    waitWorker();  // the last list's resume does not come any more
 diff --git a/port/whole/runtime/dvd.cpp b/port/whole/runtime/dvd.cpp
-index 8312783d..e9bec79a 100644
+index 8312783d3..8ada19f58 100644
 --- a/port/whole/runtime/dvd.cpp
 +++ b/port/whole/runtime/dvd.cpp
 @@ -32,0 +33 @@
@@ -3696,13 +4239,14 @@ index 8312783d..e9bec79a 100644
 @@ -236 +239 @@ const char* releaseName(int release)
 -                                        "US release G4BE08", "unknown game",
 +                                        "US release G4BE08 (untested)", "unknown game",
-@@ -459,0 +463,62 @@ s32 entryForStart(const Disc& d, u32 startAddr, u32 length)
+@@ -459,0 +463,101 @@ s32 entryForStart(const Disc& d, u32 startAddr, u32 length)
 +// The files read last stay open (stage 6.2e: on the 3DS an fopen by the whole path took about 37 ms, as long as the
 +// read itself, and the village's loading reads 320 times), by path (another disc gives other paths), with their
 +// size; any thread (gOpenLock).
 +const int kOpenFiles = 8;
 +struct OpenFile {
 +    std::string path;
++    bool stream = false;  // (RE4_DVD_STRPIN) read from inside the audio interrupt: the sound driver's stream
 +    FILE* f = nullptr;
 +    long size = -1;
 +    u32 used = 0;
@@ -3711,6 +4255,41 @@ index 8312783d..e9bec79a 100644
 +u32 gOpenClock;
 +std::mutex gOpenLock;
 +
++// (RE4_DVD_STRPIN, 2026-11-26) a file the sound driver streams from stays open while another can be closed: a room's
++// load took its place, and the next refill inside the audio interrupt opened it again (an fopen on the 3DS's SD
++// card: about 37 ms). 0: as before (the one used longest ago). At most 2 of the 8 places stay so: the game streams
++// from two files (snd.cpp StrFileTbl); re4_dvd_close_cached (HOME) closes them as well. tStreamReader: who reads a
++// stream's block on this thread now - 1 the driver's refill inside the audio interrupt (the game's thread), 2 the
++// read-ahead thread.
++thread_local int tStreamReader;
++int gStreamPin = -1;
++bool streamPin()
++{
++    if (gStreamPin < 0) {
++        const char* e = getenv("RE4_DVD_STRPIN");
++        gStreamPin = e && *e && *e != '0';
++        if (gStreamPin) {
++            re4_log("DVD: the sound streams' file stays open (RE4_DVD_STRPIN)");
++        }
++    }
++    return gStreamPin != 0;
++}
++
++// `o` is closed before `v` when a file must make room
++bool closesFirst(const OpenFile& o, const OpenFile& v)
++{
++    if (!v.f) {
++        return false;
++    }
++    if (!o.f) {
++        return true;
++    }
++    if (o.stream != v.stream && streamPin()) {
++        return !o.stream;
++    }
++    return o.used < v.used;
++}
++
 +// The file at `path`, open (nullptr: it cannot be opened); under gOpenLock.
 +OpenFile* openFile(const char* path)
 +{
@@ -3718,9 +4297,10 @@ index 8312783d..e9bec79a 100644
 +    for (OpenFile& o : gOpen) {
 +        if (o.f && o.path == path) {
 +            o.used = ++gOpenClock;
++            o.stream = o.stream || tStreamReader != 0;
 +            return &o;
 +        }
-+        if (!victim || (victim->f && (!o.f || o.used < victim->used))) {
++        if (!victim || closesFirst(o, *victim)) {
 +            victim = &o;
 +        }
 +    }
@@ -3735,6 +4315,7 @@ index 8312783d..e9bec79a 100644
 +    victim->path = path;
 +    victim->size = fseek(f, 0, SEEK_END) == 0 ? ftell(f) : -1;
 +    victim->used = ++gOpenClock;
++    victim->stream = tStreamReader != 0;
 +    return victim;
 +}
 +
@@ -3751,6 +4332,7 @@ index 8312783d..e9bec79a 100644
 +            fclose(o.f);
 +            o.f = nullptr;
 +            o.path.clear();
++            o.stream = false;
 +            n++;
 +        }
 +    }
@@ -3759,7 +4341,7 @@ index 8312783d..e9bec79a 100644
 +
 +namespace {
 +
-@@ -461,0 +527,13 @@ s32 entryForStart(const Disc& d, u32 startAddr, u32 length)
+@@ -461,0 +566,59 @@ s32 entryForStart(const Disc& d, u32 startAddr, u32 length)
 +// (stage 7.1) A long read in pieces of this size, the retraces due delivered between them (re4_interrupt_point): the
 +// background task reading a room is suspended there as on the GameCube, the frame and the sound go on.
 +// RE4_LOAD_FRAMES=0: in one piece, as before
@@ -3773,9 +4355,55 @@ index 8312783d..e9bec79a 100644
 +    return (size_t) piece;
 +}
 +
-@@ -463,0 +542 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
++// (2026-11-27, the 3DS D-pad weapons) The weapon files (em/wepNN.drs, 0.2-0.65 MB) whole in a room of memory the
++// platform gives at the start (re4_dvd_weapon_arena; on the 3DS linear memory taken before the GX thread runs:
++// libctru's linear allocator has no lock). Which files: re4_dvd_weapon_want (the game's thread - the D-pad's
++// weapons and the equipped one); the read-ahead thread reads them (wepFillStep: a piece at a time, the streams'
++// blocks first), the room's files no longer wanted make room, the oldest first (the others moved down). The game's
++// own reads of such a file are copies from the room - the file's bytes. Without a room or a read-ahead thread
++// (Linux, Android, RE4_WEP_CACHE=0): as before.
++struct WepFile {
++    char path[200];
++    u32 off = 0, size = 0, used = 0;
++    int state = 0;  // 0 free, 1 ready, 2 being read
++};
++const int kWepFiles = 8, kWepWants = 6;
++WepFile gWep[kWepFiles];
++std::mutex gWepLock;  // gWep, the wish; the bytes of the ready files (moved under it)
++unsigned char* gWepRoom;
++u32 gWepRoomSize;
++char gWepWant[kWepWants][48];
++int gWepWantN;
++char gWepFailed[kWepWants][48];  // wished, not read (no such file, no room): until the wish changes
++int gWepFailedN;
++u32 gWepUse;
++WepFile* gWepFillNow;  // (the read-ahead thread's file being read, its bytes so far)
++u32 gWepFillDone;
++std::atomic<int> gWepStop(0);  // the room being given back (a movie): no more pieces
++
++// The game's read of `path` from the room (false: not there)
++bool wepTake(const char* path, void* dst, s32 length, s32 offset)
++{
++    if (!gWepRoom) {
++        return false;
++    }
++    std::lock_guard<std::mutex> lock(gWepLock);
++    for (WepFile& w : gWep) {
++        if (w.state == 1 && strcmp(w.path, path) == 0) {
++            const u32 have = (u32) offset < w.size ? w.size - (u32) offset : 0;
++            const u32 n = have < (u32) length ? have : (u32) length;
++            memcpy(dst, gWepRoom + w.off + offset, n);
++            memset((char*) dst + n, 0, (size_t) length - n);
++            w.used = ++gWepUse;
++            return true;
++        }
++    }
++    return false;
++}
++
+@@ -463,0 +627 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 +    RE4_PROF_ZONE(RE4_PROF_DVD);
-@@ -469,15 +547,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
+@@ -469,15 +632,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 -    if (entry < 0) {
 -        // A file opened before the disc swap (a stream still fading out while a save from the other disc
 -        // loads: the title's music, a tester's report 01.11.2026) keeps reading its own file on the disc it
@@ -3791,18 +4419,19 @@ index 8312783d..e9bec79a 100644
 -            d = &other;
 -        }
 -    }
-@@ -494,6 +557,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
+@@ -494,5 +643,2 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 -    FILE* f = fopen(path, "rb");
 -    if (!f) {
 -        re4_log("DVD: cannot open %s", path);
 -        noteProblem(*d, path, "missing on this device (it cannot be opened)");
 -        return -1;
--    }
-@@ -501,3 +558,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
++    if (wepTake(path, dst, length, offset)) {  // (2026-11-27, the D-pad weapons: from the room)
++        return length;
+@@ -501,3 +646,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 -    if (fseek(f, offset, SEEK_SET) == 0) {
 -        got = fread(dst, 1, (size_t) length, f);
 -    }
-@@ -505,2 +560,31 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
+@@ -505,2 +648,31 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 -    if (fseek(f, 0, SEEK_END) == 0) {
 -        fileSize = ftell(f);
 +    const size_t piece = loadPiece();  // (stage 7.1)
@@ -3836,9 +4465,9 @@ index 8312783d..e9bec79a 100644
 +            break;
 +        }
 +        re4_interrupt_point();  // (stage 7.1: outside the lock - a stream read inside the interrupt takes it)
-@@ -508 +591,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
+@@ -508 +679,0 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 -    fclose(f);
-@@ -542,0 +626,123 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
+@@ -542,0 +714,132 @@ s32 readFile(DVDFileInfo* fi, void* dst, s32 length, s32 offset)
 +// (stream read-ahead, 2026-11-20) The sound driver refills a stream from inside the audio frame's interrupt
 +// (snd_str2.cpp Snd_str_dvd_read_sub: one block of 16 or 32 KB, the one after the last), which is readFile on the
 +// game's thread: on the 3DS's SD card 8-11 ms about every 0.8 s, a frame of 45-49 ms among frames of 35 (bench8,
@@ -3865,6 +4494,8 @@ index 8312783d..e9bec79a 100644
 +std::mutex gAheadLock;
 +void (*gAheadWake)(void);
 +u32 gAheadClock, gAheadTaken, gAheadWaited, gAheadOwn;
++u32 gAheadPushed;  // (2026-11-26) blocks wanted or read, then pushed out by others before they were taken
++u32 gAheadUnbegun;  // (2026-11-26) blocks wanted, not begun by the thread when the game came for them
 +
 +// The block from the read-ahead into dst (true), or it is not there
 +bool aheadTake(DVDFileInfo* fi, void* dst, s32 length, s32 offset, s32* result)
@@ -3882,6 +4513,7 @@ index 8312783d..e9bec79a 100644
 +        }
 +        if (a.state == kAheadWanted) {
 +            a.state = kAheadFree;  // not begun: the game reads it itself
++            gAheadUnbegun++;
 +            break;
 +        }
 +        bool waited = false;
@@ -3903,21 +4535,24 @@ index 8312783d..e9bec79a 100644
 +    }
 +    gAheadOwn += !taken;
 +    if (((gAheadTaken + gAheadOwn) & 63) == 0) {
-+        re4_log("DVD: stream read-ahead: %u blocks taken from it (%u of them waited for), %u read by the game's thread",
-+                (unsigned) gAheadTaken, (unsigned) gAheadWaited, (unsigned) gAheadOwn);
++        re4_log("DVD: stream read-ahead: %u blocks taken from it (%u of them waited for), %u read by the game's thread "
++                "(%u of them wanted, not begun), %u pushed out untaken",
++                (unsigned) gAheadTaken, (unsigned) gAheadWaited, (unsigned) gAheadOwn, (unsigned) gAheadUnbegun,
++                (unsigned) gAheadPushed);
 +    }
 +    return taken;
 +}
 +
 +// The blocks from `offset` of the file on are wanted next (kAheadDeep of them, the nearest first)
-+void aheadWant(DVDFileInfo* fi, s32 length, s32 offset)
++int aheadWant(DVDFileInfo* fi, s32 length, s32 offset, int deep = kAheadDeep, bool hint = false)
 +{
 +    if (!gAheadWake || length <= 0 || length > kAheadMost || offset < 0) {
-+        return;
++        return 0;
 +    }
 +    const Disc* d = current();
-+    const s32 end = offset + kAheadDeep * length;  // (the blocks wanted: [offset, end))
++    const s32 end = offset + deep * length;  // (the blocks wanted: [offset, end))
 +    bool wanted = false;
++    int got = 0;  // (places given: blocks newly wanted)
 +    {
 +        std::lock_guard<std::mutex> lock(gAheadLock);
 +        for (s32 at = offset; at < end && (u32) at < fi->length; at += length) {
@@ -3931,8 +4566,8 @@ index 8312783d..e9bec79a 100644
 +                    there = true;  // there, or coming
 +                    break;
 +                }
-+                if (a.state == kAheadReading) {
-+                    continue;
++                if (a.state == kAheadReading || (hint && a.state != kAheadFree)) {
++                    continue;  // (a hint: free places only, RE4_DVD_STRHINT)
 +                }
 +                const bool keep = same && a.length == length && a.offset >= offset && a.offset < end;
 +                const int rank = a.state == kAheadFree ? 3 : keep ? 0 : same ? 2 : 1;
@@ -3947,6 +4582,7 @@ index 8312783d..e9bec79a 100644
 +            if (!slot) {
 +                break;
 +            }
++            gAheadPushed += slot->state != kAheadFree;  // (a block wanted or read, never taken)
 +            slot->disc = d;
 +            slot->startAddr = fi->startAddr;
 +            slot->fileLength = fi->length;
@@ -3955,14 +4591,48 @@ index 8312783d..e9bec79a 100644
 +            slot->used = ++gAheadClock;
 +            slot->state = kAheadWanted;
 +            wanted = true;
++            got++;
 +        }
 +    }
 +    if (wanted) {
 +        gAheadWake();
 +    }
++    return got;
 +}
 +
-@@ -546,0 +753,54 @@ extern "C" {
+@@ -546,0 +850,337 @@ extern "C" {
++// (RE4_DVD_STRHINT, 2026-11-26; patch 0370: game/snd.cpp, the game's thread, once a new stream is set up and
++// placed - Snd_str_init, then Snd_str_init_pos for a start inside it) a stream's next block is at `pos` of its data
++// at `start` of the file, in blocks of `length`, `size` bytes of it left: its first blocks are read ahead now. Before,
++// the driver's first refill read the first block itself inside the audio interrupt (10-40 ms on the SD card: the
++// start of a fight's music, a room's), and the next ones waited for the thread that had only then begun. Free places
++// only (another stream's blocks stay), no more blocks than the stream has. The first refill comes within an audio
++// frame or so: the hint gains that much, not the whole read. 0: as before; N: N blocks (1-6).
++void re4_dvd_stream_hint(DVDFileInfo* fi, u32 start, u32 pos, u32 length, u32 size)
++{
++    static int blocks = -1;
++    if (blocks < 0) {
++        const char* e = getenv("RE4_DVD_STRHINT");
++        blocks = e ? atoi(e) : 0;
++        blocks = blocks < 0 ? 0 : blocks > kAhead - 2 ? kAhead - 2 : blocks;
++        if (blocks) {
++            re4_log("DVD: a sound stream's first %d blocks read ahead from its start (RE4_DVD_STRHINT)%s", blocks,
++                    gAheadWake ? "" : " - no read-ahead thread here: only counted");
++        }
++    }
++    const u32 offset = start + pos;
++    if (!blocks || !fi || offset >= 0x80000000u || !length || length > (u32) kAheadMost) {
++        return;
++    }
++    const u32 left = (size + length - 1) / length;  // (a short stream: its blocks only)
++    const int n = left < (u32) blocks ? (int) left : blocks;
++    const int got = n > 0 ? aheadWant(fi, (s32) length, (s32) offset, n, true) : 0;
++    re4_log("DVD: stream hint (RE4_DVD_STRHINT): file %x, stream at 0x%x, from 0x%x of it (%s), %d of %d blocks "
++            "(%u left), %d places given",
++            (unsigned) fi->startAddr, (unsigned) start, (unsigned) pos, pos ? "inside" : "its start", n, blocks,
++            (unsigned) left, got);
++}
++
 +// The platform's thread reads the blocks wanted (until none is left); `wake` is called when one is wanted
 +void re4_dvd_ahead_start(void (*wake)(void))
 +{
@@ -3975,7 +4645,244 @@ index 8312783d..e9bec79a 100644
 +    re4_log("DVD: stream read-ahead on (the block after a sound stream's refill, by a thread of its own)");
 +}
 +
-+void re4_dvd_ahead_work(void)
++// (2026-11-27, the D-pad weapons) the room for the weapon files (the platform, at the start)
++void re4_dvd_weapon_arena(void* room, unsigned size)
++{
++    std::lock_guard<std::mutex> lock(gWepLock);
++    gWepRoom = (unsigned char*) room;
++    gWepRoomSize = room ? size : 0;
++    gWepStop = 0;
++}
++
++// The platform (a movie's start: its buffers want linear memory in one piece): the room given back (NULL: none) and
++// its size; the read-ahead stops first - a piece being read ends under gOpenLock; the wish forgotten (the next one
++// reads the files again into a room given anew)
++void* re4_dvd_weapon_arena_off(unsigned* size)
++{
++    if (!gWepRoom) {
++        return nullptr;
++    }
++    gWepStop = 1;
++    std::lock_guard<std::mutex> open(gOpenLock);
++    std::lock_guard<std::mutex> lock(gWepLock);
++    void* room = gWepRoom;
++    *size = gWepRoomSize;
++    gWepRoom = nullptr;
++    gWepRoomSize = 0;
++    for (WepFile& w : gWep) {
++        w.state = 0;
++    }
++    gWepFillNow = nullptr;
++    gWepWantN = gWepFailedN = 0;
++    return room;
++}
++
++// The game's thread: the weapon files (names on the disc) to keep in the room; the read-ahead woken for the missing
++void re4_dvd_weapon_want(const char* const* names, int n)
++{
++    if (!gWepRoom || !gAheadWake) {
++        return;
++    }
++    n = n < kWepWants ? n : kWepWants;
++    bool same = n == gWepWantN, missing = false;
++    {
++        std::lock_guard<std::mutex> lock(gWepLock);
++        for (int i = 0; i < n && same; i++) {
++            same = strcmp(gWepWant[i], names[i]) == 0;
++        }
++        if (!same) {
++            for (int i = 0; i < n; i++) {
++                snprintf(gWepWant[i], sizeof(gWepWant[i]), "%s", names[i]);
++            }
++            gWepWantN = n;
++            gWepFailedN = 0;
++            missing = true;
++            char list[200];
++            int o = 0;
++            list[0] = 0;
++            for (int i = 0; i < n && o < 180; i++) {
++                o += snprintf(list + o, sizeof(list) - o, "%s%s", i ? ", " : "", names[i]);
++            }
++            re4_log("DVD: weapon files wished: %s", list);
++        }
++    }
++    if (missing) {
++        gAheadWake();
++    }
++}
++
++// The read-ahead thread: one step of reading the wished weapon files (a piece); true while more is left
++static bool wepFillStep()
++{
++    WepFile*& filling = gWepFillNow;
++    u32& done = gWepFillDone;
++    if (!gWepRoom || gWepStop) {
++        return false;
++    }
++    const int no = gCurrent;
++    if (no < 0) {
++        return false;
++    }
++    if (!filling) {
++        char path[200], name[48];
++        path[0] = 0;
++        {
++            std::lock_guard<std::mutex> lock(gWepLock);
++            for (int i = 0; i < gWepWantN && !path[0]; i++) {
++                bool failed = false;
++                for (int f = 0; f < gWepFailedN && !failed; f++) {
++                    failed = strcmp(gWepFailed[f], gWepWant[i]) == 0;
++                }
++                const s32 e = failed ? -1 : lookup(gDiscs[no], gWepWant[i]);
++                if (e < 0) {
++                    continue;
++                }
++                char p[200];
++                entryPath(gDiscs[no], (u32) e, p, sizeof(p));
++                bool have = false;
++                for (WepFile& w : gWep) {
++                    have = have || (w.state != 0 && strcmp(w.path, p) == 0);
++                }
++                if (!have) {
++                    snprintf(path, sizeof(path), "%s", p);
++                    snprintf(name, sizeof(name), "%s", gWepWant[i]);
++                }
++            }
++        }
++        if (!path[0]) {
++            return false;
++        }
++        long size = -1;
++        {
++            std::lock_guard<std::mutex> lock(gOpenLock);
++            OpenFile* o = openFile(path);
++            size = o ? o->size : -1;
++        }
++        std::lock_guard<std::mutex> lock(gWepLock);
++        if (!gWepRoom) {
++            return false;  // (given back meanwhile)
++        }
++        // room: the files not wished go, the oldest first, until the free room holds it
++        auto wished = [&](const WepFile& w) {
++            for (int i = 0; i < gWepWantN; i++) {
++                const s32 e = lookup(gDiscs[no], gWepWant[i]);
++                char p[200];
++                if (e >= 0) {
++                    entryPath(gDiscs[no], (u32) e, p, sizeof(p));
++                    if (strcmp(p, w.path) == 0) {
++                        return true;
++                    }
++                }
++            }
++            return false;
++        };
++        WepFile* slot = nullptr;
++        for (WepFile& w : gWep) {
++            slot = !slot && w.state == 0 ? &w : slot;
++        }
++        for (;;) {
++            u32 taken = 0;
++            for (WepFile& w : gWep) {
++                taken += w.state ? w.size : 0;
++            }
++            if (size > 0 && slot && taken + (u32) size <= gWepRoomSize) {
++                break;
++            }
++            WepFile* old = nullptr;
++            for (WepFile& w : gWep) {
++                if (w.state == 1 && !wished(w) && (!old || w.used < old->used)) {
++                    old = &w;
++                }
++            }
++            if (!old || size <= 0) {
++                re4_log("DVD: weapon file %s not kept (%ld bytes; the room %u KB is full)", name, size,
++                        gWepRoomSize >> 10);
++                if (gWepFailedN < kWepWants) {
++                    snprintf(gWepFailed[gWepFailedN++], sizeof(gWepFailed[0]), "%s", name);
++                }
++                return true;
++            }
++            old->state = 0;
++            slot = slot ? slot : old;
++        }
++        // the kept files moved down to the room's start, in their order (the free room after them)
++        u32 at = 0;
++        for (;;) {
++            WepFile* next = nullptr;
++            for (WepFile& w : gWep) {
++                if (w.state == 1 && w.off >= at && (!next || w.off < next->off)) {
++                    next = &w;
++                }
++            }
++            if (!next) {
++                break;
++            }
++            if (next->off != at) {
++                memmove(gWepRoom + at, gWepRoom + next->off, next->size);
++                next->off = at;
++            }
++            at += (next->size + 31) & ~31u;
++        }
++        if (at + (u32) size > gWepRoomSize) {
++            if (gWepFailedN < kWepWants) {
++                snprintf(gWepFailed[gWepFailedN++], sizeof(gWepFailed[0]), "%s", name);
++            }
++            return true;
++        }
++        snprintf(slot->path, sizeof(slot->path), "%s", path);
++        slot->off = at;
++        slot->size = (u32) size;
++        slot->state = 2;
++        filling = slot;
++        done = 0;
++        return true;
++    }
++    // a piece of the file being read (the room's place of a file being read never moves: only this thread moves)
++    const u32 piece = 64 << 10, want = filling->size - done < piece ? filling->size - done : piece;
++    size_t n = 0;
++    {
++        std::lock_guard<std::mutex> lock(gOpenLock);
++        if (!gWepRoom || !filling) {
++            return false;  // (the room given back meanwhile)
++        }
++        OpenFile* o = openFile(filling->path);
++        if (o && fseek(o->f, (long) done, SEEK_SET) == 0) {
++            n = fread(gWepRoom + filling->off + done, 1, want, o->f);
++        }
++    }
++    std::lock_guard<std::mutex> lock(gWepLock);
++    if (!gWepRoom || !filling) {
++        return false;
++    }
++    if (n != want) {
++        re4_log("DVD: weapon file %s: a read failed - not kept", filling->path);
++        const char* base = strstr(filling->path, "/files/");
++        if (gWepFailedN < kWepWants) {  // (until the wish changes: no read again and again)
++            snprintf(gWepFailed[gWepFailedN++], sizeof(gWepFailed[0]), "%s", base ? base + 7 : filling->path);
++        }
++        filling->state = 0;
++        filling = nullptr;
++        return true;
++    }
++    done += want;
++    if (done == filling->size) {
++        filling->state = 1;
++        filling->used = ++gWepUse;
++        u32 taken = 0;
++        int count = 0;
++        for (WepFile& w : gWep) {
++            taken += w.state == 1 ? w.size : 0;
++            count += w.state == 1 ? 1 : 0;
++        }
++        re4_log("DVD: weapon file read ahead: %s (%u KB; %d files, %u of %u KB)", filling->path, filling->size >> 10,
++                count, taken >> 10, gWepRoomSize >> 10);
++        filling = nullptr;
++    }
++    return true;
++}
++
++// the streams' blocks wanted, read (returns when none is left)
++static void aheadStreams(void)
 +{
 +    for (;;) {
 +        Ahead* a = nullptr;
@@ -4010,14 +4917,37 @@ index 8312783d..e9bec79a 100644
 +        // (the disc inserted, read only: current() would insert disc 0 from this thread; a block of the other disc,
 +        // after a change, is never taken - aheadTake compares the disc)
 +        const int no = gCurrent;
++        tStreamReader = 2;  // (RE4_DVD_STRPIN: a stream's block)
 +        const s32 result = no >= 0 && &gDiscs[no] == a->disc ? readFile(&fi, a->data, length, offset) : -1;
++        tStreamReader = 0;
 +        std::lock_guard<std::mutex> lock(gAheadLock);
 +        a->result = result;
 +        a->state = result == length ? kAheadReady : kAheadFree;
 +    }
 +}
 +
-@@ -777,0 +1038,33 @@ void re4_dvd_read_done(const char* name)
++// The platform's thread: the streams' blocks wanted, then (2026-11-27) the weapon files a piece at a time, the
++// streams' blocks looked at again between the pieces
++void re4_dvd_ahead_work(void)
++{
++    for (;;) {
++        aheadStreams();
++        if (!wepFillStep()) {
++            return;
++        }
++    }
++}
++
+@@ -741,0 +1382,4 @@ static int gBootFast = -1;  // -1: not asked yet, 1: the start, 0: done or off
++// (2026-11-27, patch 0385: the 3DS D-pad weapons) while set (the game's thread, around a weapon's load) the queue's
++// steps follow at once as at the start: the weapon's read in one frame instead of 4-9
++extern "C" volatile int re4_dvd_fast_now;
++volatile int re4_dvd_fast_now;
+@@ -745,0 +1390,3 @@ int re4_dvd_boot_fast(void)
++    if (re4_dvd_fast_now) {
++        return 1;
++    }
+@@ -777,0 +1425,33 @@ void re4_dvd_read_done(const char* name)
 +// debug/roomInfo.dat (the debug build's start menu; on the European discs only when put there for a start in another
 +// room, docs 03-environment.md "Бенчмарк"): with the start room r100 or none the game would start straight in r100
 +// instead of the new game's r120 -> r100 (the recorded routes, bench3); left out then, as on the retail discs.
@@ -4051,10 +4981,24 @@ index 8312783d..e9bec79a 100644
 +    return true;
 +}
 +
-@@ -781 +1074 @@ s32 DVDConvertPathToEntrynum(const char* path)
+@@ -781 +1461 @@ s32 DVDConvertPathToEntrynum(const char* path)
 -    return d ? lookup(*d, path) : -1;
 +    return d && !roomInfoHidden(*d, path) ? lookup(*d, path) : -1;
-@@ -833 +1126,16 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
+@@ -783,0 +1464,6 @@ s32 DVDConvertPathToEntrynum(const char* path)
++// (2026-11-24) the 3DS reads the file's textures ahead (gx_3ds.cpp, RE4_3DS_TEXPRELOAD): its path below files/
++extern "C" void (*re4_dvd_open_fn)(const char* path);
++#if !defined(__3DS__)
++void (*re4_dvd_open_fn)(const char* path);
++#endif
++
+@@ -789,0 +1476,6 @@ int DVDFastOpen(s32 entrynum, DVDFileInfo* fi)
++    if (re4_dvd_open_fn) {
++        char path[512];
++        entryPath(*d, (u32) entrynum, path, sizeof(path));
++        const char* below = strstr(path, "/files/");
++        re4_dvd_open_fn(below ? below + 7 : path);
++    }
+@@ -833 +1525,18 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
 -    s32 result = readFile(fi, addr, length, offset);
 +    // (stage 7.1b) the retraces due between the pieces of the read (readFile) may suspend the background task
 +    // (iTaskSuspend); it gives up the CPU only after the callback, at the top of the queue's next step (patch 0329,
@@ -4066,17 +5010,19 @@ index 8312783d..e9bec79a 100644
 +    }
 +    const bool stream = re4_os_in_interrupt() != 0;  // the sound driver's refill (stream read-ahead, above)
 +    s32 result = 0;
++    tStreamReader = stream ? 1 : 0;  // (RE4_DVD_STRPIN)
 +    if (!stream || !aheadTake(fi, addr, length, offset, &result)) {
 +        result = readFile(fi, addr, length, offset);
 +    }
++    tStreamReader = 0;
 +    if (stream && result == length) {
 +        aheadWant(fi, length, offset + length);
 +    }
-@@ -838,0 +1147,3 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
+@@ -838,0 +1548,3 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
 +    if (hold) {
 +        re4_os_hold_switch(-1);
 +    }
-@@ -841,0 +1153,7 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
+@@ -841,0 +1554,7 @@ int DVDReadAsyncPrio(DVDFileInfo* fi, void* addr, s32 length, s32 offset, DVDCal
 +// (stage 7.1b, patch 0329) the top of a turn of the game's read loop (cDvd::readProcMain), the step over: a
 +// suspension held during its read happens here
 +void re4_dvd_task_point(void)
@@ -4085,7 +5031,7 @@ index 8312783d..e9bec79a 100644
 +}
 +
 diff --git a/port/whole/runtime/formats/formats.cpp b/port/whole/runtime/formats/formats.cpp
-index 1012d72f..44186d57 100644
+index 1012d72f1..44186d57b 100644
 --- a/port/whole/runtime/formats/formats.cpp
 +++ b/port/whole/runtime/formats/formats.cpp
 @@ -22 +21,0 @@
@@ -4150,7 +5096,7 @@ index 1012d72f..44186d57 100644
 @@ -808 +755,0 @@ extern "C" void re4_formats_unpacked(void* dst, unsigned size)
 -    re4_formats_timed(label, size, re4_formats_now_ns() - t0, "convert");
 diff --git a/port/whole/runtime/formats/formats.h b/port/whole/runtime/formats/formats.h
-index 2d4debd8..96648312 100644
+index 2d4debd84..966483122 100644
 --- a/port/whole/runtime/formats/formats.h
 +++ b/port/whole/runtime/formats/formats.h
 @@ -34,0 +35,13 @@ u32 be32(Blob& b, u32 off);
@@ -4168,7 +5114,7 @@ index 2d4debd8..96648312 100644
 +inline bool relocated(u32 v) { return re4_is_addr(v); }
 +#endif
 diff --git a/port/whole/runtime/formats/formats_arc.cpp b/port/whole/runtime/formats/formats_arc.cpp
-index ab749d0e..63c5c98a 100644
+index ab749d0ec..63c5c98a8 100644
 --- a/port/whole/runtime/formats/formats_arc.cpp
 +++ b/port/whole/runtime/formats/formats_arc.cpp
 @@ -117,0 +118,14 @@ namespace {
@@ -4189,7 +5135,7 @@ index ab749d0e..63c5c98a 100644
 @@ -174,0 +189 @@ void convertArchiveWith(Blob& b, const Part& part, PickConverter pick)
 +            loadPoint();  // (stage 7.1)
 diff --git a/port/whole/runtime/formats/formats_event.cpp b/port/whole/runtime/formats/formats_event.cpp
-index 408c1d85..83803036 100644
+index 408c1d858..83803036b 100644
 --- a/port/whole/runtime/formats/formats_event.cpp
 +++ b/port/whole/runtime/formats/formats_event.cpp
 @@ -129 +129 @@ void convertCameraAt(Blob& b, u32 base)
@@ -4202,7 +5148,7 @@ index 408c1d85..83803036 100644
 -    if (pac & 0x80000000u) {
 +    if (relocated(pac)) {
 diff --git a/port/whole/runtime/formats/formats_model.cpp b/port/whole/runtime/formats/formats_model.cpp
-index 925e87de..35d58940 100644
+index 925e87dec..35d589407 100644
 --- a/port/whole/runtime/formats/formats_model.cpp
 +++ b/port/whole/runtime/formats/formats_model.cpp
 @@ -80 +80 @@ void convertBinAt(Blob& b, u32 base, u32 end)
@@ -4212,14 +5158,14 @@ index 925e87de..35d58940 100644
 -    if (n && (offs[0] & 0x80000000u)) {
 +    if (n && relocated(offs[0])) {
 diff --git a/port/whole/runtime/formats/formats_scene.cpp b/port/whole/runtime/formats/formats_scene.cpp
-index 1dbf124c..4180d6d8 100644
+index 1dbf124c3..4180d6d88 100644
 --- a/port/whole/runtime/formats/formats_scene.cpp
 +++ b/port/whole/runtime/formats/formats_scene.cpp
 @@ -332 +332 @@ u32 convertSatBlocks(Blob& b, u32 o, int depth)
 -        if (next & 0x80000000u) {
 +        if (relocated(next)) {
 diff --git a/port/whole/runtime/game_language.cpp b/port/whole/runtime/game_language.cpp
-index d02e0cbb..11531456 100644
+index d02e0cbb4..115314568 100644
 --- a/port/whole/runtime/game_language.cpp
 +++ b/port/whole/runtime/game_language.cpp
 @@ -33 +32,0 @@ extern "C" void re4_core_restart_game(int language);  // runtime/core_api.cpp
@@ -4253,7 +5199,7 @@ index d02e0cbb..11531456 100644
 -    // the app's "Invert vertical" over the saved one too (runtime/aim_options.cpp)
 -    re4_aim_after_card();
 diff --git a/port/whole/runtime/gci.cpp b/port/whole/runtime/gci.cpp
-index 389f40ea..f5baaba3 100644
+index 389f40ea3..f5baaba33 100644
 --- a/port/whole/runtime/gci.cpp
 +++ b/port/whole/runtime/gci.cpp
 @@ -55,6 +54,0 @@ const char kGame[] = "G4BE", kCompany[] = "08";
@@ -4279,7 +5225,7 @@ index 389f40ea..f5baaba3 100644
 -            re4_log("gci: %s imported (%u blocks%s)", name, blocks, european ? ", European G4BP08 as G4BE08" : "");
 +            re4_log("gci: %s imported (%u blocks)", name, blocks);
 diff --git a/port/whole/runtime/gx_decode.cpp b/port/whole/runtime/gx_decode.cpp
-index aaeaf967..dad7f3cc 100644
+index aaeaf9674..beee00779 100644
 --- a/port/whole/runtime/gx_decode.cpp
 +++ b/port/whole/runtime/gx_decode.cpp
 @@ -30,0 +31,5 @@
@@ -4296,7 +5242,7 @@ index aaeaf967..dad7f3cc 100644
 +#include <unistd.h>
 @@ -43,0 +52 @@
 +#include <unordered_set>
-@@ -126,0 +136,21 @@ Gp gGp;
+@@ -126,0 +136,25 @@ Gp gGp;
 +#if defined(__3DS__)
 +}  // namespace
 +// The register shadow (re4_gx_fifo.h): the words a write may be dropped on, kept by bpWrite and
@@ -4314,16 +5260,20 @@ index aaeaf967..dad7f3cc 100644
 +// a BP mask waits (bit 1 of re4_gx_shadow_on: the shadow is used only while it is exactly 1)
 +inline void re4_gx_shadow_masked(bool on)
 +{
-+    re4_gx_shadow_on = on ? re4_gx_shadow_on | 2 : re4_gx_shadow_on & ~2;
++    // (X, finding 2) stored only when it changes: every BP write came here, and the line was the game's
++    const int now = on ? re4_gx_shadow_on | 2 : re4_gx_shadow_on & ~2;
++    if (now != re4_gx_shadow_on) {
++        re4_gx_shadow_on = now;
++    }
 +}
 +#endif
 +
-@@ -270,4 +299,0 @@ std::atomic<bool> gStill(false);  // a menu screen of the game (re4_gx_still): R
+@@ -270,4 +303,0 @@ std::atomic<bool> gStill(false);  // a menu screen of the game (re4_gx_still): R
 -std::atomic<bool> gMovie(false);  // a movie plays (re4_gx_movie): RE4_GX_CHUNK_MOVIE
 -// the picture format "Native" (re4_gx_wide): the first load of the camera's projection in this chunk was the wide
 -// one (1), the game's 4:3 (0), none yet (-1): RE4_GX_CHUNK_WIDE
 -std::atomic<int> gWide(-1);
-@@ -326,0 +353,124 @@ Chunk* chunk()
+@@ -326,0 +357,136 @@ Chunk* chunk()
 +#if defined(__3DS__)
 +const Re4GxDirect* gDirect;  // re4_gx_set_direct: the renderer of the 3DS (port/whole/3ds/gx_3ds.cpp)
 +u32 gDirectFrames;           // display copies handed to it
@@ -4341,9 +5291,21 @@ index aaeaf967..dad7f3cc 100644
 +enum { kStreamCp, kStreamXfMtx, kStreamXfNrm, kStreamXfTexLight, kStreamXfReg, kStreamBp, kStreamDraw, kStreamOwner,
 +       kStreamCall, kStreamOther, kStreamKinds };
 +u32 gStreamCount[kStreamKinds], gStreamBytes[kStreamKinds], gFeeds;
++// (X, finding 8) every re4_gx_timer_every-th call of a part, times that (16; RE4_3DS_DRAWTIMERS=1: every call):
++// the clock is a system call, 4-6 of them a draw
++extern "C" unsigned re4_gx_timer_every;
++u32 gTimeCalls[kTimeParts];
 +struct PartTimer {
-+    explicit PartTimer(int part) : part(part), from(svcGetSystemTick()) {}
-+    ~PartTimer() { gTime[part] += svcGetSystemTick() - from; }
++    explicit PartTimer(int part)
++        : part(part), from((++gTimeCalls[part] & (re4_gx_timer_every - 1)) == 0 ? svcGetSystemTick() : 0)
++    {
++    }
++    ~PartTimer()
++    {
++        if (from) {
++            gTime[part] += (svcGetSystemTick() - from) * re4_gx_timer_every;
++        }
++    }
 +    int part;
 +    u64 from;
 +};
@@ -4448,12 +5410,15 @@ index aaeaf967..dad7f3cc 100644
 +    gOwnerChunks = 0;
 +}
 +
-@@ -543 +693 @@ void hintChunk()
+@@ -543 +709 @@ void hintChunk()
 -            re4cpu::KeepOffSlowCores(cores, sizeof(cores), re4cpu::kGameThread);
 +            re4cpu::KeepOffSlowCores(cores, sizeof(cores));
-@@ -605,0 +756 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
+@@ -604 +770 @@ re4cpu::ThreadUse gCoreUse;           // processor time of the core thread per c
+-void chunkBoundary(u32 xfb, u32 width, u32 height)
++__attribute__((noinline)) void chunkBoundary(u32 xfb, u32 width, u32 height)
+@@ -605,0 +772 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
 +    RE4_PROF_ZONE(RE4_PROF_GX_FRAME);
-@@ -606,0 +758,7 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
+@@ -606,0 +774,7 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
 +    ownerChunk();
 +#if defined(__3DS__)
 +    if (gDirect) {
@@ -4461,24 +5426,57 @@ index aaeaf967..dad7f3cc 100644
 +        gDirectFrames++;
 +    }
 +#endif
-@@ -648,3 +805,0 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
+@@ -648,3 +821,0 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
 -    // "Native": what this picture's first load of the camera's projection was; the next picture decides anew,
 -    // also while no chunk is recorded (no renderer, a dropped chunk: else a 4:3 load of long before would stay)
 -    const int wide = gWide.exchange(-1);
-@@ -660,6 +814,0 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
+@@ -660,6 +830,0 @@ void chunkBoundary(u32 xfb, u32 width, u32 height)
 -        if (gMovie.load()) {
 -            v.flags |= RE4_GX_CHUNK_MOVIE;
 -        }
 -        if (wide == 1) {
 -            v.flags |= RE4_GX_CHUNK_WIDE;
 -        }
-@@ -1642,0 +1792,5 @@ bool addEntry(u32 vat, const Format& f, const DrawArrays& arrays, const u8* data
+@@ -1138,0 +1304,32 @@ struct DrawArrays {
++// (patch 0352, RE4_SKIN_LAZY) The skinning jobs left after the picture run at the draws that read their vertices:
++// gSkinNeedGen is the generation whose jobs may still run (the record after them names it, re4_gx_skin_lazy), ~0
++// once they are all done. skinNeed before a draw reads its arrays.
++u32 gSkinNeedGen = ~0u;
++#if defined(__3DS__)
++extern "C" int re4_skin_need(const void* pos, unsigned gen);  // trans.cpp
++extern "C" int re4_skin_lazy;
++extern "C" volatile u64 re4_gx_skin_draw_mono;  // gx_thread_3ds.cpp (RE4_SKIN_LAZY 3)
++u64 gSkinNeedTicks;
++u32 gSkinNeedCalls;
++inline void skinNeed(const DrawArrays& arrays)
++{
++    if (gSkinNeedGen == ~0u || !arrays.a[0].base) {
++        return;
++    }
++    const u64 from = svcGetSystemTick();
++    int r = re4_skin_need(arrays.a[0].base, gSkinNeedGen);
++    if (r >= 0 && re4_skin_lazy == 2 && arrays.a[1].base) {  // checked: the normals' array too
++        const int n = re4_skin_need(arrays.a[1].base, gSkinNeedGen);
++        r = n < 0 ? n : n > r ? n : r;
++    }
++    gSkinNeedCalls++;
++    if (r < 0) {
++        gSkinNeedGen = ~0u;
++    } else if (r >= 2) {
++        re4_gx_skin_draw_mono += svcGetSystemTick() - from;
++        gSkinNeedTicks += svcGetSystemTick() - from;
++    }
++}
++#else
++inline void skinNeed(const DrawArrays&) {}
++#endif
+@@ -1642,0 +1840,5 @@ bool addEntry(u32 vat, const Format& f, const DrawArrays& arrays, const u8* data
 +#if defined(__3DS__)
 +u32 gBigDrawPieces;  // (2026-11-18) draws over the renderer's stage cut into pieces (the log: since the last line)
 +u32 gBigGrids;       // (2026-11-18) of them square strip grids drawn from every RE4_3DS_BIGGRID-th line
 +#endif
 +
-@@ -1649,0 +1804,126 @@ void draw(u8 op, u32 count, const u8* data, bool be, bool stable)
+@@ -1649,0 +1852,127 @@ void draw(u8 op, u32 count, const u8* data, bool be, bool stable)
 +#if defined(__3DS__)
 +    if (gDirect && count) {
 +        // the vertices straight into the renderer's memory, the draw handed over at once
@@ -4580,6 +5578,7 @@ index aaeaf967..dad7f3cc 100644
 +        for (u32 i = 0; i < 8; i++) {
 +            arrays.a[4 + i] = f.texMode[i] >= 2 ? array(4 + i) : kNone;
 +        }
++        skinNeed(arrays);  // (patch 0352)
 +        const u32 kind = op & 0xF8;
 +        const u32 added = (u32) indexCount(kind, count);
 +        uint16_t* w = nullptr;
@@ -4605,7 +5604,9 @@ index aaeaf967..dad7f3cc 100644
 +        return;
 +    }
 +#endif
-@@ -1800,0 +2081,51 @@ u32 gLoggedMissing;
+@@ -1669,0 +1999 @@ void draw(u8 op, u32 count, const u8* data, bool be, bool stable)
++    skinNeed(arrays);  // (patch 0352)
+@@ -1800,0 +2131,51 @@ u32 gLoggedMissing;
 +#if !defined(__3DS__)
 +// RE4_TEXDUMP=DIR (stage 5.7a): each texture bound, once a run, to DIR/tex-<pid>.dump (re4_tex_dump.h): level 0 and
 +// the palette, for the 3DS's pack of PICA textures (port/whole/3ds/tools/texpak.cpp)
@@ -4657,7 +5658,7 @@ index aaeaf967..dad7f3cc 100644
 +}
 +#endif
 +
-@@ -1886,0 +2218,26 @@ void bindMap(u32 map)
+@@ -1886,0 +2268,26 @@ void bindMap(u32 map)
 +#if !defined(__3DS__)
 +    if (bound.key != 0 && !(bound.flags & RE4_GX_TEX_COPY) && bound.dataBytes) {
 +        dumpTexture(t, re4gx::memory(t.address, bound.dataBytes));
@@ -4684,52 +5685,52 @@ index aaeaf967..dad7f3cc 100644
 +        return;
 +    }
 +#endif
-@@ -1924,0 +2282,3 @@ void bindTextures()
+@@ -1924,0 +2332,3 @@ void bindTextures()
 +#if defined(__3DS__)
 +    PartTimer timer(kTimeTextures);
 +#endif
-@@ -1948,0 +2309,5 @@ void bindTextures()
+@@ -1948,0 +2359,5 @@ void bindTextures()
 +#if defined(__3DS__)
 +// Register writes per picture (re4_gx_kept_report): all and those that changed the state
 +u32 gStateBp, gStateBpChanged, gStateXf, gStateXfChanged, gStateXfWords, gStateCp;
 +#endif
 +
-@@ -1950,0 +2316,3 @@ void cpWrite(u8 reg, u32 value)
+@@ -1950,0 +2366,3 @@ void cpWrite(u8 reg, u32 value)
 +#if defined(__3DS__)
 +    gStateCp++;
 +#endif
-@@ -1951,0 +2320,2 @@ void cpWrite(u8 reg, u32 value)
+@@ -1951,0 +2370,2 @@ void cpWrite(u8 reg, u32 value)
 +    // (only on a change: the game writes VCD and the matrix indices for each model, mostly as they were; the formats
 +    // worked out again at each were ~1 us a list of the cache on bench7, stage 3.8)
-@@ -1953 +2323,4 @@ void cpWrite(u8 reg, u32 value)
+@@ -1953 +2373,4 @@ void cpWrite(u8 reg, u32 value)
 -        memset(gFormatValid, 0, sizeof(gFormatValid));  // every format reads these
 +        const u32 old = reg == 0x30 ? gGp.matIndexA : reg == 0x40 ? gGp.matIndexB : reg == 0x50 ? gGp.vcdLo : gGp.vcdHi;
 +        if (value != old) {
 +            memset(gFormatValid, 0, sizeof(gFormatValid));  // every format reads these
 +        }
-@@ -1955 +2328,10 @@ void cpWrite(u8 reg, u32 value)
+@@ -1955 +2378,4 @@ void cpWrite(u8 reg, u32 value)
 -        gFormatValid[reg & 7] = false;
 +        const u32 old = reg < 0x80 ? gGp.vatA[reg & 7] : reg < 0x90 ? gGp.vatB[reg & 7] : gGp.vatC[reg & 7];
 +        if (value != old) {
 +            gFormatValid[reg & 7] = false;
 +        }
-+    }
+@@ -1956,0 +2383,7 @@ void cpWrite(u8 reg, u32 value)
 +#if defined(__3DS__)
 +    // the shadow: VCD, VAT and the matrix indices (array bases and strides reset the hint 0x03)
 +    if (reg == 0x30 || reg == 0x40 || reg == 0x50 || reg == 0x60 || (reg >= 0x70 && reg < 0xA0)) {
 +        re4_gx_cp_shadow[reg] = value;
 +        re4_gx_cp_known[reg] = 1;
-@@ -1956,0 +2339 @@ void cpWrite(u8 reg, u32 value)
++    }
 +#endif
-@@ -1973,0 +2357,3 @@ void cpWrite(u8 reg, u32 value)
+@@ -1973,0 +2407,3 @@ void cpWrite(u8 reg, u32 value)
 +#if defined(__3DS__)
 +        gStaticArrays = false;
 +#endif
-@@ -1976,0 +2363,3 @@ void cpWrite(u8 reg, u32 value)
+@@ -1976,0 +2413,3 @@ void cpWrite(u8 reg, u32 value)
 +#if defined(__3DS__)
 +        gStaticArrays = false;
 +#endif
-@@ -2010,0 +2400,21 @@ void xfWrite(u32 address, const u8* data, u32 count, bool be)
+@@ -2010,0 +2450,21 @@ void xfWrite(u32 address, const u8* data, u32 count, bool be)
 +#if defined(__3DS__)
 +    gStateXf++;
 +    gStateXfWords += count;
@@ -4751,7 +5752,11 @@ index aaeaf967..dad7f3cc 100644
 +        }
 +    }
 +#endif
-@@ -2070,0 +2481,61 @@ bool isAction(u8 reg)
+@@ -2040 +2500 @@ void xfIndexed(u8 op, u32 word)
+-void tlutLoad()
++__attribute__((noinline)) void tlutLoad()
+@@ -2071 +2531,62 @@ bool isAction(u8 reg)
+-void efbCopy(u32 control)
 +}  // namespace
 +
 +// The water's copy of the frame (game/trans.cpp GetEfbTex, patch 0328): the address it goes to (physical, as BP 0x4B
@@ -4813,16 +5818,17 @@ index aaeaf967..dad7f3cc 100644
 +
 +namespace {
 +
-@@ -2110,0 +2582,4 @@ void bpWrite(u32 word)
++__attribute__((noinline)) void efbCopy(u32 control)
+@@ -2110,0 +2632,4 @@ void bpWrite(u32 word)
 +#if defined(__3DS__)
 +        // while a mask waits no write may be dropped (the masked one acts on part of the word)
 +        re4_gx_shadow_masked(value != 0xFFFFFF);
 +#endif
-@@ -2112,0 +2588,3 @@ void bpWrite(u32 word)
+@@ -2112,0 +2638,3 @@ void bpWrite(u32 word)
 +#if defined(__3DS__)
 +    re4_gx_shadow_masked(false);
 +#endif
-@@ -2115,0 +2594,12 @@ void bpWrite(u32 word)
+@@ -2115,0 +2644,12 @@ void bpWrite(u32 word)
 +#if defined(__3DS__)
 +    {
 +        // the shadow: the same word again changes nothing, but for the registers that act on each
@@ -4835,7 +5841,7 @@ index aaeaf967..dad7f3cc 100644
 +        }
 +    }
 +#endif
-@@ -2116,0 +2607,11 @@ void bpWrite(u32 word)
+@@ -2116,0 +2657,11 @@ void bpWrite(u32 word)
 +#if defined(__3DS__)
 +    gStateBp++;
 +    // (the water's copy, BP 0x52 to re4_gx_water_addr: each write is a copy, the same word again too)
@@ -4847,11 +5853,11 @@ index aaeaf967..dad7f3cc 100644
 +        gDirect->bp(reg, now);
 +    }
 +#endif
-@@ -2153 +2654,2 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth);
+@@ -2153 +2704,2 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth);
 -void callDisplayList(u32 address, u32 size, int depth)
 +// The port's owner tag (command 0x02, or straight in: re4gx::directOwner)
 +void ownerCommand(const u32 owner[4])
-@@ -2155,3 +2657,4 @@ void callDisplayList(u32 address, u32 size, int depth)
+@@ -2155,3 +2707,4 @@ void callDisplayList(u32 address, u32 size, int depth)
 -    gStats.calls++;
 -    if (depth > 0) {
 -        return;  // the GP does not nest display lists
@@ -4859,34 +5865,18 @@ index aaeaf967..dad7f3cc 100644
 +#if defined(__3DS__)
 +    if (owner[0] == 0x5458524Eu) {  // 'TXRN' (R4)
 +        re4_gx_texrender_pass = owner[1] == 1;
-@@ -2159,6 +2662,2 @@ void callDisplayList(u32 address, u32 size, int depth)
+@@ -2159,4 +2712,206 @@ void callDisplayList(u32 address, u32 size, int depth)
 -    const u8* list = re4gx::listMemory(address, size);
 -    if (!list) {
 -        if (gUnknownLogged++ < 8) {
 -            re4_log("GX: display list at 0x%08x (%u bytes) is not in memory", address, size);
--        }
--        return;
 +    if (gDirect) {
 +        gDirect->owner(owner);
-@@ -2166,6 +2665,3 @@ void callDisplayList(u32 address, u32 size, int depth)
--    gStats.dlBytes += size;
--    gListBytes += size;
--    bool be = true;
--    auto host = gHostLists.find((uintptr_t) list);
--    if (host != gHostLists.end() && host->second.size == size && hashBytes(list, size, 0) == host->second.hash) {
--        be = false;
++    }
 +#endif
 +    if (chunk()) {
 +        emit(RE4_GX_OP_OWNER, owner, 4);
-@@ -2173,8 +2669,79 @@ void callDisplayList(u32 address, u32 size, int depth)
--    size_t at = 0;
--    while (at < size) {
--        size_t need = 0;
--        size_t used = command(list + at, size - at, &need, be, depth + 1);
--        if (used == 0) {
--            break;  // a command cut off at the end of the list
--        }
--        at += used;
++    }
 +}
 +
 +#if defined(__3DS__)
@@ -4966,9 +5956,9 @@ index aaeaf967..dad7f3cc 100644
 +    KeptFront& fr = keptFront(at);
 +    if (fr.at == at) {
 +        fr.at = 0;
-@@ -2181,0 +2749 @@ void callDisplayList(u32 address, u32 size, int depth)
++    }
 +    gKept.erase(at);
-@@ -2182,0 +2751,25 @@ void callDisplayList(u32 address, u32 size, int depth)
++}
 +u32 gKeptBytes;
 +struct KeptStats {
 +    u32 hits, made, never, failed, evicted, rebuilt, uniqueVertices, rawVertices, dynHits, dynMade, dynVertices;
@@ -4994,29 +5984,21 @@ index aaeaf967..dad7f3cc 100644
 +int gSkinTemplate = -1; // RE4_3DS_SKINTEMPLATE (-1: not read yet)
 +int gSplitFrom = -1;    // RE4_3DS_SPLIT=N: dynamic lists split from the decoder's frame N (0 never; -1 not read yet)
 +KeptStats gKeptStats;
-@@ -2184,3 +2777 @@ void callDisplayList(u32 address, u32 size, int depth)
--// One command at p (n bytes available): its length, or 0 when it is cut off
--// (*need: the bytes it takes).
--size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
++
++// (X, finding 15) by a call: inlined with the constant length the three were 1.3 KB of straight-line code in keptList
++__attribute__((noinline)) u64 hashBytesCall(const u8* p, size_t n, u64 seed)
++{
++    return hashBytes(p, n, seed);
++}
++
 +u64 keptSample(const u8* list, u32 size)
-@@ -2188,3 +2779,2 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--    *need = 1;
--    if (n == 0) {
--        return 0;
++{
 +    if (size <= 192) {
-+        return hashBytes(list, size, size);
-@@ -2192,8 +2782,80 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--    u8 op = p[0];
--    switch (op) {
--    case 0x00:  // NOP
--        return 1;
--    case 0x08:  // CP register
--        *need = 6;
--        if (n < 6) {
--            return 0;
-+    u64 h = hashBytes(list, 64, size);
-+    h = hashBytes(list + (size / 2 & ~3u), 64, h);
-+    return hashBytes(list + size - 64, 64, h);
++        return hashBytesCall(list, size, size);
++    }
++    u64 h = hashBytesCall(list, 64, size);
++    h = hashBytesCall(list + (size / 2 & ~3u), 64, h);
++    return hashBytesCall(list + size - 64, 64, h);
 +}
 +
 +// The room written: its name from now on (Re4GxDirect kept, stage 5.7b: the renderer may move it), the indices at
@@ -5094,15 +6076,15 @@ index aaeaf967..dad7f3cc 100644
 +    {
 +        for (int m = 0; m <= 128; m++) {
 +            k[m] = (u8) (m <= 64 ? 127 : 8128 / m);
-@@ -2201,7 +2863,46 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--        gStats.commands++;
--        cpWrite(p[1], rd32(p + 2, be));
--        return 6;
--    case 0x10: {  // XF registers / memory: (count - 1) << 16 | address, then the words
--        *need = 5;
--        if (n < 5) {
--            return 0;
-+    }
+@@ -2164 +2918,0 @@ void callDisplayList(u32 address, u32 size, int depth)
+-        return;
+@@ -2166,6 +2920,47 @@ void callDisplayList(u32 address, u32 size, int depth)
+-    gStats.dlBytes += size;
+-    gListBytes += size;
+-    bool be = true;
+-    auto host = gHostLists.find((uintptr_t) list);
+-    if (host != gHostLists.end() && host->second.size == size && hashBytes(list, size, 0) == host->second.hash) {
+-        be = false;
 +};
 +const PackS8 kPackS8;
 +int gPackS8From = -1;  // RE4_GX_PACKS8=N: from the decoder's frame N (0 never; -1 not read yet)
@@ -5148,14 +6130,15 @@ index aaeaf967..dad7f3cc 100644
 +        memcpy(out, full, 12);
 +        if (head == 16) {
 +            packNormal(full + 12, out + 12);
-@@ -2209,5 +2910,17 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--        u32 head = rd32(p + 1, be);
--        size_t count = (head >> 16) + 1;
--        *need = 5 + 4 * count;
--        if (n < *need) {
--            return 0;
++        }
 +        memcpy(out + head, full + head + cut, stride - head);
-+    }
+@@ -2173,6 +2968,15 @@ void callDisplayList(u32 address, u32 size, int depth)
+-    size_t at = 0;
+-    while (at < size) {
+-        size_t need = 0;
+-        size_t used = command(list + at, size - at, &need, be, depth + 1);
+-        if (used == 0) {
+-            break;  // a command cut off at the end of the list
 +}
 +
 +// (2026-11-11, r200: a check's buffer grown past the C heap's largest piece, std::terminate) a scratch buffer to n
@@ -5171,30 +6154,32 @@ index aaeaf967..dad7f3cc 100644
 +        if (gScratchShort++ < 8) {
 +            re4_log("GX: a scratch buffer of %u KB without room in the C heap (a check left out, or the list drawn "
 +                    "as before)", (unsigned) ((n * sizeof(T)) >> 10));
-@@ -2215,4 +2928 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--        gStats.commands++;
--        gStats.xf++;
--        xfWrite(head & 0xFFFF, p + 5, (u32) count, be);
--        return *need;
+@@ -2180 +2984 @@ void callDisplayList(u32 address, u32 size, int depth)
+-        at += used;
 +        return false;
-@@ -2220,7 +2930,31 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--    case 0x20:
--    case 0x28:
--    case 0x30:
--    case 0x38:  // XF loads from the indexed arrays 12..15
--        *need = 5;
--        if (n < 5) {
--            return 0;
-+}
-+
+@@ -2184,3 +2988,3 @@ void callDisplayList(u32 address, u32 size, int depth)
+-// One command at p (n bytes available): its length, or 0 when it is cut off
+-// (*need: the bytes it takes).
+-size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 +// A dynamic list's vertices converted whole from the arrays as they are (the check, k.full); false: no room for the
 +// work buffer (2026-11-11), nothing written
 +bool keptConvertWhole(const Format& f, const DrawArrays& arrays, const Kept& k, u32 count, u8* out)
-+{
+@@ -2188,3 +2992,3 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+-    *need = 1;
+-    if (n == 0) {
+-        return 0;
 +    static std::vector<u8> work;
 +    if (!scratch(work, (size_t) count * f.stride)) {
 +        return false;
-+    }
+@@ -2192,8 +2996,21 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+-    u8 op = p[0];
+-    switch (op) {
+-    case 0x00:  // NOP
+-        return 1;
+-    case 0x08:  // CP register
+-        *need = 6;
+-        if (n < 6) {
+-            return 0;
 +    convertVertices(f, arrays, k.raw, count, k.key.be != 0, work.data(), gBlock);
 +    keptCompact(f, work.data(), count, out);
 +    return true;
@@ -5216,13 +6201,13 @@ index aaeaf967..dad7f3cc 100644
 +            }
 +            f.posBlock[0](out + (size_t) done * stride, stride, gBlock.pos, n, f.posScale);
 +            done += n;
-@@ -2228,7 +2962,8 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+@@ -2201,7 +3018,8 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 -        gStats.commands++;
--        xfIndexed(op, rd32(p + 1, be));
--        return 5;
--    case 0x40:  // call a display list
--        *need = 9;
--        if (n < 9) {
+-        cpWrite(p[1], rd32(p + 2, be));
+-        return 6;
+-    case 0x10: {  // XF registers / memory: (count - 1) << 16 | address, then the words
+-        *need = 5;
+-        if (n < 5) {
 -            return 0;
 +    }
 +    if (k.nrmIdx) {  // as convertVertices reads them (its first three components), then packed
@@ -5232,10 +6217,12 @@ index aaeaf967..dad7f3cc 100644
 +        if (gPackS8From < 0) {
 +            const char* v = getenv("RE4_GX_PACKS8");
 +            gPackS8From = v ? atoi(v) : 1;
-@@ -2236,3 +2971,1712 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
--        gStats.commands++;
--        callDisplayList(rd32(p + 1, be), rd32(p + 5, be), depth);
--        return 9;
+@@ -2209,5 +3027,21 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+-        u32 head = rd32(p + 1, be);
+-        size_t count = (head >> 16) + 1;
+-        *need = 5 + 4 * count;
+-        if (n < *need) {
+-            return 0;
 +        const bool s8 = f.nrmFormat == 1 && gPackS8From && gDirectFrames >= (u32) gPackS8From;
 +        for (u32 done = 0; done < count;) {
 +            const u32 n = count - done < kBlock ? count - done : kBlock;
@@ -5257,7 +6244,8 @@ index aaeaf967..dad7f3cc 100644
 +                packNormal((const u8*) (work + 3 * v), out + (size_t) (done + v) * stride + 12);
 +            }
 +            done += n;
-+        }
+@@ -2215 +3049,1681 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+-        gStats.commands++;
 +    }
 +}
 +
@@ -5667,6 +6655,10 @@ index aaeaf967..dad7f3cc 100644
 +        (head == 16 && (nrm.stride != 3 || !keptFits(nrm, p.nrmTop, 3)))) {
 +        return nullptr;
 +    }
++    std::unique_lock<std::mutex> lazyLock(gHeadMutex, std::defer_lock);
++    if (gSkinNeedGen != ~0u) {  // (patch 0352) jobs of this generation still write its table
++        lazyLock.lock();
++    }
 +    const HeadEntry* e = headFind(gHeadNow, pos.base, p.id);
 +    if (!e || !e->buf || (head == 16 && e->nrm != nrm.base)) {
 +        return nullptr;
@@ -5696,9 +6688,16 @@ index aaeaf967..dad7f3cc 100644
 +        (f.nrmFormat != 1 || f.nrmComps * f.nrmCs != 3 || nrm.stride != 3 || !k.nrmIdx || gPackS8From <= 0)) {
 +        return;
 +    }
-+    const HeadEntry* e = headFind(gHeadNow, pos.base, 0);
-+    if (!e || (head == 16 && (e->nrm != nrm.base || e->nrmKind != 1))) {
-+        return;
++    const HeadEntry* e;
++    {
++        std::unique_lock<std::mutex> lazyLock(gHeadMutex, std::defer_lock);
++        if (gSkinNeedGen != ~0u) {  // (patch 0352) jobs of this generation still write its table
++            lazyLock.lock();
++        }
++        e = headFind(gHeadNow, pos.base, 0);
++        if (!e || (head == 16 && (e->nrm != nrm.base || e->nrmKind != 1))) {
++            return;
++        }
 +    }
 +    if (!k.plan) {
 +        const u32 words = head == 16 ? 2 * count : count;
@@ -6081,7 +7080,7 @@ index aaeaf967..dad7f3cc 100644
 +}
 +
 +// A dynamic list: its vertices alike by their bytes in the list once, the indices to them.
-+bool keptBuildDynamic(Kept& k, const u8* list, u32 size, bool be, const Format& f, const DrawArrays& arrays,
++__attribute__((noinline)) bool keptBuildDynamic(Kept& k, const u8* list, u32 size, bool be, const Format& f, const DrawArrays& arrays,
 +                      u32 vertices, u32 indices, u32 draws)
 +{
 +    const u32 in = f.inSize;
@@ -6242,7 +7241,7 @@ index aaeaf967..dad7f3cc 100644
 +}
 +
 +// The list's draws converted into k (true), or why not (k.never, or k.retry: no room now).
-+bool keptBuild(Kept& k, const u8* list, u32 size, bool be, const Format& f, const DrawArrays& arrays)
++__attribute__((noinline)) bool keptBuild(Kept& k, const u8* list, u32 size, bool be, const Format& f, const DrawArrays& arrays)
 +{
 +    // the draws: all triangles of one vertex format, nothing else but NOPs
 +    u32 vertices = 0, indices = 0, draws = 0;
@@ -6619,10 +7618,13 @@ index aaeaf967..dad7f3cc 100644
 +        return false;
 +    }
 +    static const Array kNone = {nullptr, 0, 0};
-+    arraysCurrent();
 +    DrawArrays arrays;
-+    for (u32 a = 0; a < 12; a++) {
-+        arrays.a[a] = modes[a] >= 2 ? array(a) : kNone;
++    if (dynamic || !k.vertices) {  // (X, finding 9) a static hit reads none of them (array() resolves when asked)
++        arraysCurrent();
++        for (u32 a = 0; a < 12; a++) {
++            arrays.a[a] = modes[a] >= 2 ? array(a) : kNone;
++        }
++        skinNeed(arrays);  // (patch 0352; a static hit reads none of them)
 +    }
 +    if (!k.vertices) {
 +        bool built = false, heapShort = false;
@@ -6925,35 +7927,12 @@ index aaeaf967..dad7f3cc 100644
 +            return 0;
 +        }
 +        gStats.commands++;
-+        gStats.xf++;
-+        xfWrite(head & 0xFFFF, p + 5, (u32) count, be);
-+        return *need;
-+    }
-+    case 0x20:
-+    case 0x28:
-+    case 0x30:
-+    case 0x38:  // XF loads from the indexed arrays 12..15
-+        *need = 5;
-+        if (n < 5) {
-+            return 0;
-+        }
-+        gStats.commands++;
-+        xfIndexed(op, rd32(p + 1, be));
-+        return 5;
-+    case 0x40:  // call a display list
-+        *need = 9;
-+        if (n < 9) {
-+            return 0;
-+        }
-+        gStats.commands++;
-+        callDisplayList(rd32(p + 1, be), rd32(p + 5, be), depth);
-+        return 9;
-@@ -2245,3 +4689 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+@@ -2245,3 +4759 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 -        if (chunk()) {
 -            emit(RE4_GX_OP_OWNER, owner, 4);
 -        }
 +        ownerCommand(owner);
-@@ -2249,0 +4692,27 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+@@ -2249,0 +4762,27 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 +    case 0x04: {  // (patch 0339 v2) the port's sprite quads (gx_fifo.cpp re4_gx_put_quads): N, then 8 + 13 N words
 +        *need = 5;
 +        if (n < 5) {
@@ -6981,13 +7960,13 @@ index aaeaf967..dad7f3cc 100644
 +        gStaticArrays = rd32(p + 1, be) == 1;
 +#endif
 +        return 5;
-@@ -2275,0 +4745,3 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+@@ -2275,0 +4815,3 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 +#if defined(__3DS__)
 +        if (chunk() || gDirect) {
 +#else
-@@ -2276,0 +4749 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
+@@ -2276,0 +4819 @@ size_t command(const u8* p, size_t n, size_t* need, bool be, int depth)
 +#endif
-@@ -2297,0 +4771,39 @@ size_t gNeed = 1;
+@@ -2297,0 +4841,40 @@ size_t gNeed = 1;
 +#if defined(__3DS__)
 +// The vertex window (re4_gx_fifo.h, the 3DS): the room of a FIFO draw whose head is in the stream,
 +// written by the game's inline vertex writes. Anything else that touches the stream closes it
@@ -6998,7 +7977,8 @@ index aaeaf967..dad7f3cc 100644
 +
 +void closeWindow()
 +{
-+    if (re4_gx_window && !re4_gxq_on) {  // (C1: with the GX thread the window is the ring's)
++    // (X, review 2026-11-24 finding 1) re4_gxq_on first: the game stores re4_gx_window at every vertex word
++    if (!re4_gxq_on && re4_gx_window) {  // (C1: with the GX thread the window is the ring's)
 +        gStream.resize((size_t) (re4_gx_window - gStream.data()));
 +        re4_gx_window = re4_gx_window_end = nullptr;
 +    }
@@ -7027,12 +8007,12 @@ index aaeaf967..dad7f3cc 100644
 +}
 +#endif
 +
-@@ -2303,0 +4816,4 @@ void drain()
+@@ -2303,0 +4887,4 @@ void drain()
 +    RE4_PROF_SAMPLE(RE4_PROF_GX, 64);
 +#if defined(__3DS__)
 +    closeWindow();
 +#endif
-@@ -2315,0 +4832,21 @@ void drain()
+@@ -2315,0 +4903,21 @@ void drain()
 +#if defined(__3DS__)
 +        {
 +            int k = kStreamOther;
@@ -7054,7 +8034,7 @@ index aaeaf967..dad7f3cc 100644
 +            gStreamBytes[k] += (u32) used;
 +        }
 +#endif
-@@ -2324,0 +4862,73 @@ void drain()
+@@ -2324,0 +4933,73 @@ void drain()
 +#if defined(__3DS__)
 +    openWindow();
 +#endif
@@ -7128,17 +8108,17 @@ index aaeaf967..dad7f3cc 100644
 +{
 +    re4_gx_window = re4_gx_window_end = nullptr;  // the stream holds the whole draw
 +    drain();
-@@ -2325,0 +4936 @@ void drain()
+@@ -2325,0 +5007 @@ void drain()
 +#endif
-@@ -2328,0 +4940,3 @@ void feed(const uint8_t* bytes, size_t n)
+@@ -2328,0 +5011,3 @@ void feed(const uint8_t* bytes, size_t n)
 +#if defined(__3DS__)
 +    closeWindow();
 +#endif
-@@ -2330,0 +4945,3 @@ void feed(const uint8_t* bytes, size_t n)
+@@ -2330,0 +5016,3 @@ void feed(const uint8_t* bytes, size_t n)
 +#if defined(__3DS__)
 +    gFeeds++;
 +#endif
-@@ -2343,0 +4961,116 @@ extern "C" {
+@@ -2343,0 +5032,131 @@ extern "C" {
 +#if defined(__3DS__)
 +// (stage 41) the heads by the skinning jobs
 +int re4_gx_head_on;
@@ -7149,6 +8129,12 @@ index aaeaf967..dad7f3cc 100644
 +    if (re4_gx_head_on > 0 && gDirect && gDirect->later && gDirect->drawSplit) {
 +        headJob(side == 0 || side == 2 ? side : 1, gen, src, (const u8*) pos, posN, (const u8*) nrm, nrmN, nrmKind);
 +    }
++}
++
++// (patch 0352, the GX thread at the record after a generation's jobs) they may still run: the draws ask (skinNeed)
++void re4_gx_skin_lazy(unsigned gen)
++{
++    gSkinNeedGen = gen;
 +}
 +
 +void re4_gx_head_announce(unsigned gen)
@@ -7222,6 +8208,15 @@ index aaeaf967..dad7f3cc 100644
 +                h.full[0] + h.full[1] + h.full[2], h.checked, h.bad, gHeadChunks, gHeadChunks * (kHeadChunk >> 10),
 +                gHeadFreeN);
 +        memset(&gHeadStats, 0, sizeof(gHeadStats));
++#if defined(__3DS__)
++        if (re4_skin_lazy > 0) {  // (patch 0352)
++            re4_log("3ds: skinning at the draws (RE4_SKIN_LAZY %d): per frame %.1f draws asked while jobs ran, %.2f ms "
++                    "in the jobs run or waited for there",
++                    re4_skin_lazy, gSkinNeedCalls / n, gSkinNeedTicks / ms);
++        }
++        gSkinNeedCalls = 0;
++        gSkinNeedTicks = 0;
++#endif
 +    }
 +    memset(&gKeptStats, 0, sizeof(gKeptStats));
 +    const double ms = 268111.856 * (gDirectFrames - gTimeFrom ? gDirectFrames - gTimeFrom : 1);
@@ -7255,11 +8250,11 @@ index aaeaf967..dad7f3cc 100644
 +}
 +#endif
 +
-@@ -2350,0 +5084,3 @@ void re4_gx_mark(void)
+@@ -2350,0 +5170,3 @@ void re4_gx_mark(void)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2364,19 +5099,0 @@ void re4_gx_still(int on)
+@@ -2364,19 +5185,0 @@ void re4_gx_still(int on)
 -void re4_gx_movie(int on)
 -{
 -    gMovie.store(on != 0);
@@ -7279,14 +8274,14 @@ index aaeaf967..dad7f3cc 100644
 -    return gWide.load();
 -}
 -
-@@ -2384,0 +5102,3 @@ void re4_gx_host_order_list(const void* list, unsigned int size)
+@@ -2384,0 +5188,3 @@ void re4_gx_host_order_list(const void* list, unsigned int size)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2419 +5139 @@ void re4_core_gx_release(const Re4GxChunk* chunk)
+@@ -2419 +5225 @@ void re4_core_gx_release(const Re4GxChunk* chunk)
 -void re4_gx_vi_next(const void* fb)
 +static void viNext(uint32_t fb, uint32_t)
-@@ -2422 +5142,12 @@ void re4_gx_vi_next(const void* fb)
+@@ -2422 +5228,12 @@ void re4_gx_vi_next(const void* fb)
 -    gViNext = (u32) (uintptr_t) fb & 0x03FFFFE0;  // as BP 0x4B holds a copy destination
 +    gViNext = fb & 0x03FFFFE0;  // as BP 0x4B holds a copy destination
 +}
@@ -7300,10 +8295,10 @@ index aaeaf967..dad7f3cc 100644
 +    }
 +#endif
 +    viNext((uint32_t) (uintptr_t) fb, 0);
-@@ -2427 +5158 @@ void re4_gx_vi_next(const void* fb)
+@@ -2427 +5244 @@ void re4_gx_vi_next(const void* fb)
 -void re4_gx_vi_black(int black)
 +static void viBlack(uint32_t black, uint32_t)
-@@ -2432,0 +5164,11 @@ void re4_gx_vi_black(int black)
+@@ -2432,0 +5250,11 @@ void re4_gx_vi_black(int black)
 +void re4_gx_vi_black(int black)
 +{
 +#if defined(__3DS__)
@@ -7315,10 +8310,10 @@ index aaeaf967..dad7f3cc 100644
 +    viBlack(black != 0, 0);
 +}
 +
-@@ -2435 +5177 @@ void re4_gx_vi_black(int black)
+@@ -2435 +5263 @@ void re4_gx_vi_black(int black)
 -void re4_gx_vi_flush(void)
 +static void viFlush(uint32_t, uint32_t)
-@@ -2441,0 +5184,11 @@ void re4_gx_vi_flush(void)
+@@ -2441,0 +5270,11 @@ void re4_gx_vi_flush(void)
 +void re4_gx_vi_flush(void)
 +{
 +#if defined(__3DS__)
@@ -7330,32 +8325,32 @@ index aaeaf967..dad7f3cc 100644
 +    viFlush(0, 0);
 +}
 +
-@@ -2458,0 +5212,3 @@ void re4_gx_wait_jobs(void)
+@@ -2458,0 +5298,3 @@ void re4_gx_wait_jobs(void)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2466,0 +5223,3 @@ int re4_gx_threads(int n)
+@@ -2466,0 +5309,3 @@ int re4_gx_threads(int n)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2483,0 +5243,3 @@ void re4_gx_stats(unsigned out[11])
+@@ -2483,0 +5329,3 @@ void re4_gx_stats(unsigned out[11])
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2495,0 +5258,3 @@ void re4_gx_stats2(unsigned out[9])
+@@ -2495,0 +5344,3 @@ void re4_gx_stats2(unsigned out[9])
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2504,0 +5270,3 @@ unsigned re4_gx_bp(unsigned reg)
+@@ -2504,0 +5356,3 @@ unsigned re4_gx_bp(unsigned reg)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
-@@ -2510,0 +5279,3 @@ unsigned re4_gx_xf(unsigned address)
+@@ -2510,0 +5365,3 @@ unsigned re4_gx_xf(unsigned address)
 +#if defined(__3DS__)
 +    re4_gxq_sync();
 +#endif
 diff --git a/port/whole/runtime/gx_fifo.cpp b/port/whole/runtime/gx_fifo.cpp
-index 81bf5376..da1d33d0 100644
+index 81bf5376c..8825eff61 100644
 --- a/port/whole/runtime/gx_fifo.cpp
 +++ b/port/whole/runtime/gx_fifo.cpp
 @@ -18,0 +19 @@
@@ -7371,24 +8366,49 @@ index 81bf5376..da1d33d0 100644
 +int re4_gx_nrm_dead;
 +}
 +
-@@ -33,0 +44,66 @@ typedef uint32_t u32;
+@@ -33,0 +44,91 @@ typedef uint32_t u32;
 +#if defined(__3DS__)
 +}  // namespace
 +// The register shadow on the game's side (re4_gx_fifo.h, stage 3.6)
 +extern "C" unsigned char re4_gx_cp_known[256];
-+unsigned int re4_gxq_gen = ~0u;
-+unsigned int re4_gxq_bp_word[256], re4_gxq_bp_gen[256];
-+unsigned int re4_gxq_cp_word[256], re4_gxq_cp_gen[256];
-+unsigned char re4_gxq_masked;
++struct re4_gxq_shadow re4_gxq_s = {~0u};  // (B2) re4_gxq_gen and the rest: its fields (re4_gx_fifo.h)
 +int re4_gxq_list_regs;
++// (B1) 1: put() makes the shadow forget at every write of bytes (RE4_3DS_PUTGEN=1, as before); 0 (the default): only
++// where the bytes start with a register command (none in the game's stream but the port's markers BP 0x5A / 0x5B and
++// GXInit's CP writes, stage73_b1_diag.py): a draw's head no longer makes the next material's registers go again
++int re4_gxq_putgen;
++// (B5) owner records with the table of the last one left out (RE4_3DS_OWNERDEDUP; gx_thread_3ds.cpp: off with
++// RE4_GX_OWNER_STATS); after each EFB copy two go (a picture's first comes before the renderer begins it)
++int re4_gxq_ownerdedup;
++// (X, finding 2) the three on a cache line of their own: the game reads them at every owner record, and the GX
++// thread's variables were their neighbours
++#define RE4_OWNER_LINE __attribute__((section(".data.re4_gxq_owner")))
++__attribute__((aligned(32))) RE4_OWNER_LINE unsigned int re4_gxq_owner_table = ~0u;
++RE4_OWNER_LINE int re4_gxq_owner_pass = 2;
++RE4_OWNER_LINE unsigned int re4_gxq_owners_left = 0;  // (B5) per log window
++__attribute__((used)) RE4_OWNER_LINE unsigned int re4_gxq_owner_pad[5] = {0};
 +unsigned int re4_gxq_dropped[3];  // BP (inline, counted in the ring's own: none), CP, XF dropped here
 +namespace {
 +const u32 kQXfWords = 0x800 + 0x58;  // XF memory 0x0000-0x07FF, registers 0x1000-0x1057
-+u32 gQXf[kQXfWords], gQXfGen[kQXfWords];
++}  // namespace
++// (B4: re4_gx_fifo.h drops one word itself; the words in re4_gxq_s, B2)
++// (B3) the decoder's shadow, asked here on the way without the GX thread (re4_gx_fifo.h no longer does)
++extern "C" int re4_gx_shadow_on;
++extern "C" unsigned int re4_gx_bp_shadow[256];
++extern "C" unsigned int re4_gx_cp_shadow[256];
++extern "C" unsigned int* const re4_gx_xf_mem;
++extern "C" unsigned int* const re4_gx_xf_reg;
++extern "C" unsigned char* re4_gx_window;
++namespace {
++u32 (&gQXf)[kQXfWords] = re4_gxq_xf_word;
++u32 (&gQXfGen)[kQXfWords] = re4_gxq_xf_gen;
 +
 +// A BP word put in the ring: the shadow, by the rules of the decoder's (gx_decode.cpp bpWrite)
 +inline void queuedBp(u32 word)
 +{
++    if ((word >> 24) == 0x52) {
++        re4_gxq_owner_pass = 2;  // (B5) an EFB copy (the picture's end among them): the next two owner records go
++    }
 +    if (re4_gxq_gen == ~0u) {
 +        return;
 +    }
@@ -7438,24 +8458,28 @@ index 81bf5376..da1d33d0 100644
 +namespace {
 +u16 (&gCp)[0x100] = re4_gx_cp_regs;
 +#else
-@@ -34,0 +111 @@ u16 gCp[0x100];
+@@ -34,0 +136 @@ u16 gCp[0x100];
 +#endif
-@@ -91,0 +169,3 @@ void toMemory(const u8* bytes, int n)
+@@ -91,0 +194,3 @@ void toMemory(const u8* bytes, int n)
 +#if defined(__3DS__)
 +        re4_gxq_sync();  // the GX thread done with what it was given (it reads lists too)
 +#endif
-@@ -113,0 +194 @@ void put(const u8* bytes, int n)
+@@ -113,0 +219 @@ void put(const u8* bytes, int n)
 +    RE4_PROF_SAMPLE(RE4_PROF_FIFO, 256);
-@@ -114,0 +196,8 @@ void put(const u8* bytes, int n)
+@@ -114,0 +221,12 @@ void put(const u8* bytes, int n)
 +#if defined(__3DS__)
 +        if (re4_gxq_on) {
-+            re4_gxq_gen += re4_gxq_gen != ~0u;  // a command could be in the bytes: the shadow forgets
++            const u8 op = n ? bytes[0] : 0;
++            if (re4_gxq_putgen || op == 0x08 || op == 0x10 || op == 0x20 || op == 0x28 || op == 0x30 || op == 0x38 ||
++                op == 0x61) {
++                re4_gxq_gen += re4_gxq_gen != ~0u;  // a register command in the bytes: the shadow forgets (B1)
++            }
 +            re4_gxq_bytes(bytes, (size_t) n);
 +            return;
 +        }
 +#endif
 +        RE4_PROF_SAMPLE(RE4_PROF_F_STREAM, 64);
-@@ -127,0 +217,13 @@ bool gDelivering;
+@@ -127,0 +246,13 @@ bool gDelivering;
 +// The PE interrupts raised so far (on the 3DS the GX thread raises them while the game runs: the
 +// flags are taken atomically)
 +void deliverPending()
@@ -7469,15 +8493,24 @@ index 81bf5376..da1d33d0 100644
 +    }
 +}
 +
-@@ -211 +313 @@ void peFinish()
+@@ -211 +342 @@ void peFinish()
 -    gPendingFinish = true;
 +    __atomic_store_n(&gPendingFinish, true, __ATOMIC_RELEASE);
-@@ -218 +320 @@ void peToken(uint16_t token, bool interrupt)
+@@ -218 +349 @@ void peToken(uint16_t token, bool interrupt)
 -        gPendingToken = true;
 +        __atomic_store_n(&gPendingToken, true, __ATOMIC_RELEASE);
-@@ -248,0 +351,13 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
+@@ -248,0 +380,22 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
 +#if defined(__3DS__)
 +    if (re4_gxq_on && linked()) {  // to the GX thread (3.5)
++        if (re4_gxq_ownerdedup && object != 0x5458524Eu && object != 0x57415452u) {  // (B5; not 'TXRN', 'WATR')
++            if (re4_gxq_owner_pass > 0) {
++                re4_gxq_owner_pass--;
++            } else if (table == re4_gxq_owner_table) {
++                re4_gxq_owners_left++;
++                return;  // the renderer reads only the table of these (gx_3ds.cpp ownerTag)
++            }
++            re4_gxq_owner_table = table;
++        }
 +        const uint32_t owner[4] = {object, function, table, life};
 +        re4_gxq_owner(owner);
 +        return;
@@ -7489,7 +8522,7 @@ index 81bf5376..da1d33d0 100644
 +        return;
 +    }
 +#endif
-@@ -255,0 +371,132 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
+@@ -255,0 +409,148 @@ void re4_gx_put_owner(unsigned int object, unsigned int function, unsigned int t
 +// A hint to the decoder (command 0x03 of the port, one word): 1 the vertex arrays set now are a
 +// model's file data (the display list cache of the 3DS, gx_decode.cpp keptList), 0 not.
 +void re4_gx_put_hint(unsigned int hint)
@@ -7516,6 +8549,9 @@ index 81bf5376..da1d33d0 100644
 +        re4_gxq_bp(value);
 +        return;
 +    }
++    if (re4_gx_bp_shadow[value >> 24] == value && re4_gx_shadow_on == 1 && linked() && !re4_gx_window) {
++        return;  // (B3) the decoder's shadow, without the GX thread
++    }
 +#endif
 +    if (linked() && re4gx::directIdle()) {
 +        RE4_PROF_SAMPLE(RE4_PROF_FIFO, 256);
@@ -7537,6 +8573,10 @@ index 81bf5376..da1d33d0 100644
 +        }
 +        re4_gxq_cp((uint8_t) reg, value);
 +        return;
++    }
++    if (re4_gx_cp_known[reg & 0xFF] && re4_gx_cp_shadow[reg & 0xFF] == value && re4_gx_shadow_on == 1 && linked() &&
++        !re4_gx_window) {
++        return;  // (B3) the decoder's shadow, without the GX thread
 +    }
 +#endif
 +    if (linked() && re4gx::directIdle()) {
@@ -7605,6 +8645,15 @@ index 81bf5376..da1d33d0 100644
 +        re4_gxq_xf(head, (const uint32_t*) words);
 +        return;
 +    }
++    if (re4_gx_shadow_on == 1 && linked() && !re4_gx_window) {  // (B3) the decoder's shadow, without the GX thread
++        const u32 address = head & 0xFFFF, count = (head >> 16) + 1;
++        const u32* slot = address + count <= 0x800 ? re4_gx_xf_mem + address
++                          : address >= 0x1000 && address + count <= 0x1058 ? re4_gx_xf_reg + (address - 0x1000)
++                                                                            : nullptr;
++        if (slot && memcmp(slot, words, 4 * count) == 0) {
++            return;
++        }
++    }
 +#endif
 +    if (linked() && re4gx::directIdle()) {
 +        RE4_PROF_SAMPLE(RE4_PROF_FIFO, 256);
@@ -7622,7 +8671,7 @@ index 81bf5376..da1d33d0 100644
 +    }
 +}
 +
-@@ -277,0 +525,17 @@ void re4_gx_put_f32(float v)
+@@ -277,0 +579,17 @@ void re4_gx_put_f32(float v)
 +#if defined(__3DS__)
 +// The vertex window (re4_gx_fifo.h; gx_decode.cpp openWindow): the draw's last byte written
 +unsigned char* re4_gx_window;
@@ -7640,19 +8689,19 @@ index 81bf5376..da1d33d0 100644
 +}
 +#endif
 +
-@@ -299,0 +564,5 @@ unsigned int re4_gx_physical(const void* pointer)
+@@ -299,0 +618,5 @@ unsigned int re4_gx_physical(const void* pointer)
 +    // the game's static data first: on the 3DS the program image lies where physical
 +    // addresses of MEM1 do (0x00100000 on), and a pointer is what the callers pass
 +    if (p && p - re4_static_lo < re4_static_size) {
 +        return aliasOf(p);
 +    }
-@@ -300,0 +570,5 @@ unsigned int re4_gx_physical(const void* pointer)
+@@ -300,0 +624,5 @@ unsigned int re4_gx_physical(const void* pointer)
 +        static bool logged;
 +        if (p && !logged) {
 +            logged = true;
 +            re4_log("GX: 0x%08lx taken as a physical address already (re4_gx_physical)", (unsigned long) p);
 +        }
-@@ -340,28 +613,0 @@ const unsigned int kPeekGiveUp = 60;
+@@ -340,28 +667,0 @@ const unsigned int kPeekGiveUp = 60;
 -// How old the maps are that answer (pictures between the one that peeks and the map's; 0.98.5, the glows
 -// that flash through a wall or Leon's head for a picture: on the GameCube the game reads this picture's depth,
 -// here an earlier picture's, and an edge that moved since lets a glow through). Counted per peeking picture;
@@ -7681,9 +8730,9 @@ index 81bf5376..da1d33d0 100644
 -    gPeekLastFar = gPeekFar;
 -    gPeekLastHidden = gPeekHidden;
 -}
-@@ -431 +676,0 @@ unsigned int re4_gx_efb_peek(unsigned short x, unsigned short y, int z)
+@@ -431 +730,0 @@ unsigned int re4_gx_efb_peek(unsigned short x, unsigned short y, int z)
 -    peekAgeNote(age);
-@@ -460,9 +705,5 @@ void re4_gx_deliver_interrupts(void)
+@@ -460,9 +759,5 @@ void re4_gx_deliver_interrupts(void)
 -    re4gx::drain();
 -    if (gPendingToken) {
 -        gPendingToken = false;
@@ -7698,12 +8747,12 @@ index 81bf5376..da1d33d0 100644
 +        re4_gxq_sync();  // the GX thread catches up (and raises what it met: peFinish, peToken)
 +    } else {
 +        re4gx::drain();
-@@ -469,0 +711,4 @@ void re4_gx_deliver_interrupts(void)
+@@ -469,0 +765,4 @@ void re4_gx_deliver_interrupts(void)
 +#else
 +    re4gx::drain();
 +#endif
 +    deliverPending();
-@@ -472,0 +718,21 @@ void re4_gx_deliver_interrupts(void)
+@@ -472,0 +772,21 @@ void re4_gx_deliver_interrupts(void)
 +// The game's own frame is a pipeline (trans.cpp Render: the OT the last frame's logic built; the
 +// logic next; main_sub.cpp Render_done: GXDrawDone), as on the GameCube, whose graphics processor
 +// drew during the logic: on the 3DS the GX thread does too (stage 3.5), and the game waits for it
@@ -7726,7 +8775,7 @@ index 81bf5376..da1d33d0 100644
 +}
 +
 diff --git a/port/whole/runtime/gx_internal.h b/port/whole/runtime/gx_internal.h
-index 62edb465..dd74cc9d 100644
+index 62edb465e..dd74cc9d8 100644
 --- a/port/whole/runtime/gx_internal.h
 +++ b/port/whole/runtime/gx_internal.h
 @@ -38,0 +39,11 @@ void feed(const uint8_t* bytes, size_t n);
@@ -7772,7 +8821,7 @@ index 62edb465..dd74cc9d 100644
 +#endif
 +
 diff --git a/port/whole/runtime/gx_owner.cpp b/port/whole/runtime/gx_owner.cpp
-index 5eec06db..dfa10da8 100644
+index 5eec06db5..dfa10da82 100644
 --- a/port/whole/runtime/gx_owner.cpp
 +++ b/port/whole/runtime/gx_owner.cpp
 @@ -7,7 +6,0 @@
@@ -7826,7 +8875,7 @@ index 5eec06db..dfa10da8 100644
 -                     life);
 +    re4_gx_put_owner((unsigned) (size_t) data, (unsigned) (size_t) func, data ? (unsigned) table : 0xFFu, life);
 diff --git a/port/whole/runtime/gyro.cpp b/port/whole/runtime/gyro.cpp
-index 2a80882f..6487178a 100644
+index 2a80882fb..6487178a0 100644
 --- a/port/whole/runtime/gyro.cpp
 +++ b/port/whole/runtime/gyro.cpp
 @@ -11,5 +11 @@
@@ -7952,7 +9001,7 @@ index 2a80882f..6487178a 100644
 -} gTestGyro;
 -
 diff --git a/port/whole/runtime/instant_game.cpp b/port/whole/runtime/instant_game.cpp
-index daff050a..34cb32fd 100644
+index daff050ab..34cb32fdf 100644
 --- a/port/whole/runtime/instant_game.cpp
 +++ b/port/whole/runtime/instant_game.cpp
 @@ -17,5 +16,0 @@
@@ -8189,7 +9238,7 @@ index daff050a..34cb32fd 100644
 -    if (gHidePending && !gRestorePending)
 -        restoreHide();
 diff --git a/port/whole/runtime/instant_store.cpp b/port/whole/runtime/instant_store.cpp
-index e7f1a1f8..18ea69fe 100644
+index e7f1a1f82..18ea69fed 100644
 --- a/port/whole/runtime/instant_store.cpp
 +++ b/port/whole/runtime/instant_store.cpp
 @@ -97,26 +96,0 @@ int readSlot(const char* path, unsigned char* file, Re4InstantInfo* info)
@@ -8220,7 +9269,7 @@ index e7f1a1f8..18ea69fe 100644
 -}
 -
 diff --git a/port/whole/runtime/log.cpp b/port/whole/runtime/log.cpp
-index ddf906de..34306146 100644
+index ddf906de6..343061460 100644
 --- a/port/whole/runtime/log.cpp
 +++ b/port/whole/runtime/log.cpp
 @@ -61,0 +62,107 @@ std::string gFilePath;
@@ -8446,7 +9495,7 @@ index ddf906de..34306146 100644
 -            ptr - 0x80000000u <= 0x02FFFFFFu ? "" : " (outside the game memory, VALID_PTR2 drops it)");
 +            ptr - RE4_MEM1_BASE <= 0x02FFFFFFu ? "" : " (outside the game memory, VALID_PTR2 drops it)");
 diff --git a/port/whole/runtime/mem1.cpp b/port/whole/runtime/mem1.cpp
-index 651fc134..358b20ce 100644
+index 651fc1347..358b20ce9 100644
 --- a/port/whole/runtime/mem1.cpp
 +++ b/port/whole/runtime/mem1.cpp
 @@ -13,0 +14 @@
@@ -8529,7 +9578,7 @@ index 651fc134..358b20ce 100644
 +}
 +
 diff --git a/port/whole/runtime/memcard.cpp b/port/whole/runtime/memcard.cpp
-index 61055f9f..f8b4188a 100644
+index 61055f9f9..f8b4188af 100644
 --- a/port/whole/runtime/memcard.cpp
 +++ b/port/whole/runtime/memcard.cpp
 @@ -25,0 +26,2 @@
@@ -8581,7 +9630,7 @@ index 61055f9f..f8b4188a 100644
 +        return;
 +    }
 diff --git a/port/whole/runtime/module_crt.cpp b/port/whole/runtime/module_crt.cpp
-index 5c4d5b30..29ade3c0 100644
+index 5c4d5b30d..29ade3c09 100644
 --- a/port/whole/runtime/module_crt.cpp
 +++ b/port/whole/runtime/module_crt.cpp
 @@ -11,0 +12,5 @@ __attribute__((visibility("hidden"))) void (*_dtors[1])(void) = {0};
@@ -8593,7 +9642,7 @@ index 5c4d5b30..29ade3c0 100644
 @@ -12,0 +18 @@ extern void* __dso_handle;
 +#endif
 diff --git a/port/whole/runtime/module_loader.cpp b/port/whole/runtime/module_loader.cpp
-index 7a5926a3..8b3c880f 100644
+index 7a5926a36..8b3c880f6 100644
 --- a/port/whole/runtime/module_loader.cpp
 +++ b/port/whole/runtime/module_loader.cpp
 @@ -2,2 +2,3 @@
@@ -8829,7 +9878,7 @@ index 7a5926a3..8b3c880f 100644
 -        if (void* p = dlsym(gLoaded[i].handle, symbol)) {
 +        if (void* p = re4_module_symbol(gLoaded[i].handle, symbol)) {
 diff --git a/port/whole/runtime/movie_status.cpp b/port/whole/runtime/movie_status.cpp
-index 3551aa0b..2f6985a2 100644
+index 3551aa0bc..2f6985a29 100644
 --- a/port/whole/runtime/movie_status.cpp
 +++ b/port/whole/runtime/movie_status.cpp
 @@ -9,0 +10 @@
@@ -8896,7 +9945,7 @@ index 3551aa0b..2f6985a2 100644
 +        re4_movie_hw->time(&count, &scale);  // (stage 6.1: the sound's time)
 +    }
 diff --git a/port/whole/runtime/mtx_ps.c b/port/whole/runtime/mtx_ps.c
-index 64166580..10022154 100644
+index 641665805..100221541 100644
 --- a/port/whole/runtime/mtx_ps.c
 +++ b/port/whole/runtime/mtx_ps.c
 @@ -5,0 +6 @@
@@ -8966,7 +10015,7 @@ index 64166580..10022154 100644
 +}
 +
 diff --git a/port/whole/runtime/os_link.cpp b/port/whole/runtime/os_link.cpp
-index 2d3ba68d..bce10a52 100644
+index 2d3ba68dd..bce10a526 100644
 --- a/port/whole/runtime/os_link.cpp
 +++ b/port/whole/runtime/os_link.cpp
 @@ -26 +25,0 @@
@@ -8985,7 +10034,7 @@ index 2d3ba68d..bce10a52 100644
 -        if (void (*finalize)() = handle ? (void (*)()) dlsym(handle, "re4_module_finalize") : 0) {
 +        if (void (*finalize)() = handle ? (void (*)()) re4_module_symbol(handle, "re4_module_finalize") : 0) {
 diff --git a/port/whole/runtime/os_thread.cpp b/port/whole/runtime/os_thread.cpp
-index 5eb5102c..4289b497 100644
+index 5eb5102cc..4289b497d 100644
 --- a/port/whole/runtime/os_thread.cpp
 +++ b/port/whole/runtime/os_thread.cpp
 @@ -101,0 +102,9 @@ const s32 kMainPriority = 16;  // OSInit gives the boot thread priority 16
@@ -9051,7 +10100,7 @@ index 5eb5102c..4289b497 100644
 -        spanCount = 0;
 -    }
 diff --git a/port/whole/runtime/pad.cpp b/port/whole/runtime/pad.cpp
-index 28e20fd7..63cbad4a 100644
+index 28e20fd7a..63cbad4a6 100644
 --- a/port/whole/runtime/pad.cpp
 +++ b/port/whole/runtime/pad.cpp
 @@ -29,0 +30,5 @@
@@ -9190,7 +10239,7 @@ index 28e20fd7..63cbad4a 100644
 +        g_gyroFed = false;
 +    }
 diff --git a/port/whole/runtime/picture.cpp b/port/whole/runtime/picture.cpp
-index 8b12f225..a0f79a75 100644
+index 8b12f2256..a0f79a756 100644
 --- a/port/whole/runtime/picture.cpp
 +++ b/port/whole/runtime/picture.cpp
 @@ -6,2 +5,0 @@
@@ -9467,18 +10516,210 @@ index 8b12f225..a0f79a75 100644
 -    }
 +    Install() { re4_add_frame_hook(stillHook); }
 diff --git a/port/whole/runtime/potato.cpp b/port/whole/runtime/potato.cpp
-index 0f1c66f7..493e503b 100644
+index 0f1c66f78..b28797eef 100644
 --- a/port/whole/runtime/potato.cpp
 +++ b/port/whole/runtime/potato.cpp
-@@ -325,0 +326,6 @@ int re4_potato_mask(void)
+@@ -51,0 +52 @@
++#include "geometry.h"
+@@ -54,0 +56 @@
++#include <math.h>
+@@ -70,0 +73,10 @@ unsigned gLastTick;
++// port (2026-11-25, RE4_WEATHER_THIN): every second weather particle 0x48 left out (bit 0; the default), counts in the
++// log (bit 1); 0 - every particle as before
++int gThin = 1;
++unsigned gThinSeen, gThinLeft, gThinTick;
++// port (2026-11-25, RE4_WEATHER_SHEETS, patch 0350): every second weather sheet 0x15 left out, the others drawn for two
++// (bit 0), counts in the log (bit 1); 0 - every sheet as before; (2026-11-27) bit 2 with bit 0: of the room tables'
++// SstSet sheets kept, every second again (bit 1 of the pool place), the others drawn for four; 5 - the default
++// (2026-11-27, p0-ws5: GPU -0.5..-0.7 ms in recording 16, the eye - the same fog), 1 - one halving as before
++int gSheets = 5;
++unsigned gSheetSeen, gSheetLeft, gSheetTick;
+@@ -107,0 +120,13 @@ void readEnv()
++    if (const char* thin = getenv("RE4_WEATHER_THIN")) {
++        gThin = (int) strtoul(thin, 0, 0) & 3;
++        re4_log("potato: weather particles %s%s (RE4_WEATHER_THIN)", gThin & 1 ? "every second" : "all",
++                gThin & 2 ? ", counted" : "");
++    }
++    if (const char* sheets = getenv("RE4_WEATHER_SHEETS")) {
++        gSheets = (int) strtoul(sheets, 0, 0) & 7;
++        re4_log("potato: weather sheets %s%s (RE4_WEATHER_SHEETS)",
++                !(gSheets & 1)  ? "all"
++                : gSheets & 4 ? "every second, the room tables' ones every fourth, drawn for two / four"
++                              : "every second, drawn for two",
++                gSheets & 2 ? ", counted" : "");
++    }
+@@ -213,0 +239,18 @@ bool second(const cEsp* esp)
++// (2026-11-27, RE4_WEATHER_SHEETS bit 2) the second halving: bit 1 of the pool place (the first left the odd places out)
++bool fourth(const cEsp* esp)
++{
++    return (((unsigned long) esp / sizeof(cEsp)) >> 1) & 1;
++}
++
++// A weather sheet 0x15 the sheets rule takes (re4_esp_skip and re4_esp_col_a alike)
++bool sheetRule(const cEsp* esp)
++{
++    return esp->m_Id == 0x15 && !(gMask & kWeather) && !StaFlagChk(pG, STA_EVENT) && kind(esp) == kWeather;
++}
++
++// The second halving takes only the room tables' permanent sheets (SstSet, owner 208, Core_flg 0x4000)
++bool sheetSst(const cEsp* esp)
++{
++    return (gSheets & 5) == 5 && esp->info.owner == EFF_SST && (esp->info.Core_flg & 0x4000);
++}
++
+@@ -264,0 +308,39 @@ int re4_esp_skip(cEsp* esp)
++    // weather thinner (RE4_WEATHER_THIN): the room tables' weather particles 0x48 (recording 16: 296 a frame, the most
++    // of the weather's cost) - every second by its place in the pool, so one particle is left out for its whole life
++    if (gThin && esp->m_Id == 0x48 && !(gMask & kWeather) && !StaFlagChk(pG, STA_EVENT) && kind(esp) == kWeather) {
++        const bool left = (gThin & 1) && second(esp);
++        if (gThin & 2) {
++            gThinSeen++;
++            gThinLeft += left;
++            const unsigned tick = pG->Frame_cnt / 1800;
++            if (tick != gThinTick) {
++                gThinTick = tick;
++                re4_log("potato: weather particles so far: %u seen, %u left out (r%03x)", gThinSeen, gThinLeft,
++                        (unsigned) pG->room_id);
++            }
++        }
++        if (left) {
++            gSkipped[0]++;
++            return 1;
++        }
++    }
++    // weather sheets half (RE4_WEATHER_SHEETS, patch 0350): the room tables' big weather sheets 0x15 (recording 16: 53 a
++    // frame, most of the weather's GPU fill) - every second left out for its whole life, re4_esp_col_a draws the others
++    // for two
++    if (gSheets && sheetRule(esp)) {
++        const bool left = (gSheets & 1) && (second(esp) || (sheetSst(esp) && fourth(esp)));
++        if (gSheets & 2) {
++            gSheetSeen++;
++            gSheetLeft += left;
++            const unsigned tick = pG->Frame_cnt / 1800;
++            if (tick != gSheetTick) {
++                gSheetTick = tick;
++                re4_log("potato: weather sheets so far: %u seen, %u left out (r%03x)", gSheetSeen, gSheetLeft,
++                        (unsigned) pG->room_id);
++            }
++        }
++        if (left) {
++            gSkipped[0]++;
++            return 1;
++        }
++    }
+@@ -300,0 +383,20 @@ int re4_esp_skip(cEsp* esp)
++// Patch 0350 (cEsp::ChannelSet): the alpha a sprite is drawn with. A weather sheet 0x15 that re4_esp_skip keeps while
++// RE4_WEATHER_SHEETS leaves out every second one is drawn for two: two equal layers blended over give 2a - a^2 / 255,
++// added (destination factor GX_BL_ONE) 2a; never above 255. Everything else: its own alpha.
++float re4_esp_col_a(cEsp* esp, float a)
++{
++    if (!(gSheets & 1) || !sheetRule(esp) || second(esp)) {
++        return a;
++    }
++    if (sheetSst(esp)) {  // (2026-11-27, bit 2) four equal layers: 1 - (1 - a)^4 of the original alpha, added 4a
++        if (fourth(esp)) {
++            return a;  // (left out by re4_esp_skip)
++        }
++        const float o = 1.0f - a * (1.0f / 255.0f);
++        const float four = esp->m_Dst_factor == 1 ? a * 4.0f : 255.0f * (1.0f - o * o * o * o);
++        return four > 255.0f ? 255.0f : four;
++    }
++    const float two = esp->m_Dst_factor == 1 ? a * 2.0f : a * 2.0f - a * a * (1.0f / 255.0f);
++    return two > 255.0f ? 255.0f : two;
++}
++
+@@ -325,0 +428,89 @@ int re4_potato_mask(void)
 +// The room now (the 3DS panel, port/whole/3ds/settings_3ds.cpp): stage << 8 | room, -1 before the game's globals
 +int re4_room_now(void)
 +{
 +    return pG ? (int) pG->room_id : -1;
 +}
 +
++
++// (patch 0348; plan 24, branch G, finding 1 of docs/reviews/2026-11-24-gpu.md) EspTrans: 1 = this plain sprite is
++// wholly outside the camera's view this frame, so it goes into no ordering table - as a sprite re4_esp_skip leaves
++// out: nothing of it is drawn, its life and logic go on. Only sprites EspCommonTrans draws plainly (no shimmer, no
++// negative, no render target, no screen layer, not in the item get view) and not those the game tests by a radius
++// itself (AddOtWorldPosRadius). The bound is a sphere: the sprite's world position (as EspTrans takes it) and the
++// farthest corner of its quad (the unit square of g_EspCommonDisplayList scaled by m_Size_base * m_Size_mul, moved
++// by the texture's anchor Cx / Cy as EspCommonTransBody does, turned rigidly: about the view axis when it faces the
++// camera, by m_Ang with the parent's scale when it is a world one, Tool_flg 0x80001), tested as the game tests its
++// models (collision_sphere_hexahedron, CameraViewFrustumPtr). RE4_ESP_VIEWCULL: 1 (the default), 0 off, 2 count only.
++namespace {
++int gViewCull = -1;
++unsigned gVcTested, gVcOut, gVcFrame;
++}  // namespace
++
++int re4_esp_outside(cEsp* esp, int common)
++{
++    if (gViewCull < 0) {
++        const char* e = getenv("RE4_ESP_VIEWCULL");
++        gViewCull = e ? atoi(e) : 1;
++        re4_log("esp view cull: %s (RE4_ESP_VIEWCULL)", gViewCull == 1 ? "on" : gViewCull == 2 ? "count only" : "off");
++    }
++    if (!gViewCull || !common || !pG) {
++        return 0;
++    }
++    if (esp->m_Shimmer_type != 0 || (esp->m_Tool_flg & (0x2000 | 0x10000 | 0x1000)) || (esp->m_Flg & 8) ||
++        (u8) (esp->m_Parts_no + 8) <= 5 || StaFlagChk(pG, STA_ITEM_GET)) {
++        return 0;
++    }
++    if (!(esp->m_Tool_flg & (0x400000 | 0x400 | 0x800)) && esp->m_Radius != 0.0f) {
++        return 0;  // (AddOtWorldPosRadius tests it)
++    }
++    cAnm* a = nullptr;
++    if (!EspGetAnmAddr(esp->m_Tex_id, &a) || !a || !a->Width || !a->Height) {
++        return 0;
++    }
++    const float sx = esp->m_Size_base_x * esp->m_Size_mul, sy = esp->m_Size_base_y * esp->m_Size_mul;
++    const float ox = a->Cx == 0 ? -0.5f : (float) -a->Cx / a->Width;
++    const float oy = a->Cy == 0 ? -0.5f : (float) a->Cy / a->Height - 1.0f;
++    const float ax = fmaxf(__builtin_fabsf(ox), __builtin_fabsf(1.0f + ox)), ay = fmaxf(__builtin_fabsf(oy), __builtin_fabsf(1.0f + oy));
++    float r = sqrtf(sx * sx * ax * ax + sy * sy * ay * ay);
++    GEOM_SPHERE sph;
++    if (esp->parent != pEffParentWorld) {
++        PSMTXMultVec(esp->parent->mat, &esp->m_Pos, &sph.pos);
++        if (esp->m_Tool_flg & 0x80001) {  // (a world one: the parent's scale too)
++            float k = 0.0f;
++            for (int c = 0; c < 3; c++) {
++                const float n = esp->parent->mat[0][c] * esp->parent->mat[0][c] +
++                                esp->parent->mat[1][c] * esp->parent->mat[1][c] +
++                                esp->parent->mat[2][c] * esp->parent->mat[2][c];
++                k = n > k ? n : k;
++            }
++            r *= sqrtf(k);
++        }
++    } else {
++        sph.pos = esp->m_Pos;
++    }
++    if (!(r == r) || !(sph.pos.x == sph.pos.x) || !(sph.pos.y == sph.pos.y) || !(sph.pos.z == sph.pos.z)) {
++        return 0;  // (not a number: not known)
++    }
++    sph.radius = r * 1.01f + 1.0f;
++    // the game's test (collision_sphere_hexahedron) without its far plane (normal 5): the view's far plane is at the
++    // fog's end (game/light.cpp, times RE4_DRAWDIST), the projection's is not - a fog sheet beyond it still tints the
++    // picture (Linux, recording 16: 460-1 520 pixels of the heavy window with it)
++    const GEOM_HEXAHEDRON* h = CameraViewFrustumPtr(&pG->Camera);
++    int out = 0;
++    for (int i = 0; i < 5 && !out; i++) {
++        const Vec& o = h->vertex[i < 3 ? 0 : 6];
++        const float d = (sph.pos.x - o.x) * h->normal[i].x + (sph.pos.y - o.y) * h->normal[i].y +
++                        (sph.pos.z - o.z) * h->normal[i].z;
++        out = d > sph.radius + 0.01f;
++    }
++    gVcTested++;
++    gVcOut += out;
++    if (pG->Frame_cnt / 600 != gVcFrame) {
++        gVcFrame = pG->Frame_cnt / 600;
++        re4_log("esp view cull (frame %u): %u plain sprites tested, %u wholly outside the view (%s)",
++                (unsigned) pG->Frame_cnt, gVcTested, gVcOut, gViewCull == 1 ? "left out" : "counted only");
++        gVcTested = gVcOut = 0;
++    }
++    return gViewCull == 1 ? out : 0;
++}
++
 diff --git a/port/whole/runtime/re4_core.h b/port/whole/runtime/re4_core.h
-index b9e1fe09..ae2708b1 100644
+index b9e1fe09b..ae2708b10 100644
 --- a/port/whole/runtime/re4_core.h
 +++ b/port/whole/runtime/re4_core.h
 @@ -273,4 +273 @@ void re4_core_set_fast_cores(int on);
@@ -9530,7 +10771,7 @@ index b9e1fe09..ae2708b1 100644
 - * the side and from the bottom. rows -1: where the game puts it. Any thread. */
 -void re4_core_set_hud_layout(int rows, int stretch_e4, int flags);
 diff --git a/port/whole/runtime/re4_core_client.h b/port/whole/runtime/re4_core_client.h
-index b1379ed7..9b9f655c 100644
+index b1379ed7e..9b9f655ca 100644
 --- a/port/whole/runtime/re4_core_client.h
 +++ b/port/whole/runtime/re4_core_client.h
 @@ -83,2 +82,0 @@ void re4ipc_set_potato(int mask);
@@ -9544,7 +10785,7 @@ index b1379ed7..9b9f655c 100644
 -void re4ipc_set_view_aspect(int aspect_e4);
 -void re4ipc_set_hud_layout(int rows, int stretch_e4, int flags);
 diff --git a/port/whole/runtime/re4_core_ipc.h b/port/whole/runtime/re4_core_ipc.h
-index 95377293..c2211fcf 100644
+index 953772931..c2211fcf7 100644
 --- a/port/whole/runtime/re4_core_ipc.h
 +++ b/port/whole/runtime/re4_core_ipc.h
 @@ -76,8 +75,0 @@ enum MsgType : uint32_t {
@@ -9557,7 +10798,7 @@ index 95377293..c2211fcf 100644
 -    kSetViewDistance = 41, // a = percent of the room's view (no reply; re4_core_set_view_distance, patch 0223)
 -    kSetCpuSkip = 42,      // a = on: the game's own frame skip (no reply; re4_core_set_cpu_skip, patch 0227)
 diff --git a/port/whole/runtime/re4_cpu_info.h b/port/whole/runtime/re4_cpu_info.h
-index bd13b20e..19859306 100644
+index bd13b20ec..19859306a 100644
 --- a/port/whole/runtime/re4_cpu_info.h
 +++ b/port/whole/runtime/re4_cpu_info.h
 @@ -21,0 +22,23 @@
@@ -9785,7 +11026,7 @@ index bd13b20e..19859306 100644
 -    return KeepOffSlowCores(GetLayout(), out, size, role);
 +    return KeepOffSlowCores(GetLayout(), out, size);
 diff --git a/port/whole/runtime/re4_gx_frame.h b/port/whole/runtime/re4_gx_frame.h
-index ecb8b34b..c8052d65 100644
+index ecb8b34b3..c8052d65f 100644
 --- a/port/whole/runtime/re4_gx_frame.h
 +++ b/port/whole/runtime/re4_gx_frame.h
 @@ -77,2 +77 @@ enum Re4GxOp {
@@ -9821,7 +11062,7 @@ index ecb8b34b..c8052d65 100644
 -                                     app's "Sharpen" leaves its pictures as they
 -                                     are (the blocks of the compression) */
 diff --git a/port/whole/runtime/re4_runtime.h b/port/whole/runtime/re4_runtime.h
-index 0889717c..ca99c33c 100644
+index 0889717c5..b2cd426b8 100644
 --- a/port/whole/runtime/re4_runtime.h
 +++ b/port/whole/runtime/re4_runtime.h
 @@ -34 +33,0 @@ int re4_module_is_loaded(const char* name);
@@ -9943,7 +11184,7 @@ index 0889717c..ca99c33c 100644
 + * video retrace, a thread that sleeps while another can run): the GX thread of
 + * the 3DS works on behind the game meanwhile. Elsewhere the same as above. */
 +void re4_gx_deliver_reached(void);
-@@ -270,0 +341,11 @@ int re4_dsp_surround(unsigned blockAddr, short* out);
+@@ -270,0 +341,17 @@ int re4_dsp_surround(unsigned blockAddr, short* out);
 +/* the DSP's command lists on a thread of the app (the 3DS: core 1): `post` wakes it to call re4_dsp_work, `wait`
 +   returns when that is done; re4_dsp_sync on the game's thread before AX's next frame (runtime/dsp.cpp) */
 +void re4_dsp_set_worker(void (*post)(void), void (*wait)(void));
@@ -9954,8 +11195,14 @@ index 0889717c..ca99c33c 100644
 +   AI reads them; `four`: the four channels of Dolby Pro Logic II, or null) */
 +void re4_dsp_drain(void);
 +int re4_dsp_behind(void);
++/* RE4_SND_ARAMQ (2026-11-26): a write into ARAM begun inside the audio interrupt goes into the lists' queue (1, the
++   worker writes it before the next list) instead of waiting for them (0: not taken, the caller drains and copies);
++   re4_dsp_aram_flush: the writes queued are in ARAM (before the game's thread reads it) */
++int re4_dsp_aram_write(unsigned aramAddr, const void* src, unsigned length);
++void re4_dsp_aram_flush(void);
++unsigned re4_dsp_aram_queued(void);
 +void re4_ai_play_block(const short* block, const short* four);
-@@ -324,8 +404,0 @@ void re4_gx_still(int on);
+@@ -324,8 +410,0 @@ void re4_gx_still(int on);
 -/* A movie plays (1) or not (0): the chunks closed from now on carry RE4_GX_CHUNK_MOVIE (runtime/gx_decode.cpp).
 - * Set every frame by runtime/picture.cpp (re4_movie_playing). */
 -void re4_gx_movie(int on);
@@ -9964,7 +11211,7 @@ index 0889717c..ca99c33c 100644
 - * re4_gx_wide_now: that decision so far, -1 none yet in this chunk. */
 -void re4_gx_wide(int on);
 -int re4_gx_wide_now(void);
-@@ -336,0 +410,29 @@ int re4_gx_wide_now(void);
+@@ -336,0 +416,29 @@ int re4_gx_wide_now(void);
 +#ifdef __cplusplus
 +#if defined(__3DS__)
 +struct Re4ProfZone {
@@ -9995,7 +11242,7 @@ index 0889717c..ca99c33c 100644
 +#endif
 +
 diff --git a/port/whole/runtime/state_trace.cpp b/port/whole/runtime/state_trace.cpp
-index 1716ffec..2770f149 100644
+index 1716ffec3..2770f1491 100644
 --- a/port/whole/runtime/state_trace.cpp
 +++ b/port/whole/runtime/state_trace.cpp
 @@ -51,41 +50,0 @@
@@ -11397,7 +12644,7 @@ index 1716ffec..2770f149 100644
 -    }
 -}
 diff --git a/port/whole/runtime/vi.cpp b/port/whole/runtime/vi.cpp
-index f5118c5c..4f322b38 100644
+index f5118c5c6..4f322b38b 100644
 --- a/port/whole/runtime/vi.cpp
 +++ b/port/whole/runtime/vi.cpp
 @@ -170,2 +170,3 @@ void deliver()
@@ -11407,7 +12654,7 @@ index f5118c5c..4f322b38 100644
 +    // waiting for the GX thread)
 +    re4_gx_deliver_reached();
 diff --git a/port/whole/runtime/watch.cpp b/port/whole/runtime/watch.cpp
-index 0fe48d81..6ea8f603 100644
+index 0fe48d813..6ea8f6034 100644
 --- a/port/whole/runtime/watch.cpp
 +++ b/port/whole/runtime/watch.cpp
 @@ -20,0 +21 @@
@@ -11415,7 +12662,7 @@ index 0fe48d81..6ea8f603 100644
 @@ -23,0 +25 @@
 +#endif
 diff --git a/port/whole/runtime/yz2_decode.cpp b/port/whole/runtime/yz2_decode.cpp
-index 506e8696..f21f87c6 100644
+index 506e86961..f21f87c6a 100644
 --- a/port/whole/runtime/yz2_decode.cpp
 +++ b/port/whole/runtime/yz2_decode.cpp
 @@ -32,0 +33 @@ extern "C" void yz2Decode_Decode(void* ctx, void* dst, u32 size, void* in)

@@ -1,0 +1,23 @@
+# Port patch 0384 (2026-11-27, the 3DS settings during the game): the option screen opens for START or for the 3DS
+# settings' gear (runtime/cheats.cpp re4_option_request_take: a request of this frame or the last), under the same
+# conditions (OptionOpenCheck). No request on other systems: as before. Same lines.
+--- a/src/game/game.cpp	2026-11-27 13:27:36.997962265 +0900
++++ b/src/game/game.cpp	2026-11-27 13:27:37.275807146 +0900
+@@ -579,7 +579,7 @@
+ 
+ // Rno0 == 3: one frame of play, running every manager in turn. The Z button opens the option
+ // screen (Rno0 = 6) when OptionOpenCheck allows.
+-// instant slot (patch 0111)
++extern "C" int re4_option_request_take(void);  // port (patch 0384): runtime/cheats.cpp; (above: patch 0111's)
+ extern "C" int re4_instant_game_tick(void);
+ void gameMainLoop()
+ {
+@@ -737,7 +737,7 @@
+     if (!SysFlagChk(pG, SYS_DOORDEMO)) {
+         gameDebugDisp();
+     }
+-    if ((Key.trg & 0x2000) && !(Key.on & 0x400000) && !DbgFlagChk(pG, DBG_TEST_MODE) && OptionOpenCheck() == 1) {
++    if (((Key.trg & 0x2000) || re4_option_request_take()) && !(Key.on & 0x400000) && !DbgFlagChk(pG, DBG_TEST_MODE) && OptionOpenCheck() == 1) {  /* port (patch 0384): or the 3DS settings' gear */
+         Game.Rno_bak = *(u32*)&pG->Rno0;
+         pG->Rno0 = 6;
+         pG->Rno1 = 0;

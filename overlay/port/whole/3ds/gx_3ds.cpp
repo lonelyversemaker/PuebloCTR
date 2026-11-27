@@ -40,6 +40,12 @@
 #include "re4_movie_hw.h"
 #include "re4_tex_dump.h"
 
+extern "C" volatile u64 re4_hud_gx_busy;  // (stage98) gx_thread_3ds.cpp: the GX thread's busy ticks so far
+
+// (2026-11-24) textures ahead: runtime/dvd.cpp calls it as the game opens a file (its path below files/)
+extern "C" void (*re4_dvd_open_fn)(const char* path);
+extern "C" void re4_3ds_tex_preload_open(const char* path);
+
 extern "C" volatile u32 re4_hud_gpu_busy, re4_hud_gpu_all;
 extern "C" int re4_occ_on;  // (occlusion cull, the end of this file)
 extern "C" volatile int re4_occ_sparse;
@@ -51,6 +57,44 @@ extern "C" void re4_gxq_fn(void (*fn)(uint32_t, uint32_t), uint32_t a, uint32_t 
 extern "C" gxCmdQueue_s __C3D_Context;
 extern "C" u32 __ctru_linear_heap, __ctru_linear_heap_size;
 extern "C" void C3Di_UpdateContext(void);  // citro3d 1.7.1: its state into commands (C3D_DrawElements calls it first)
+
+// (X, review 2026-11-24 finding 4) vramSpaceFree() walks the free lists of both VRAM pools, and toVram asked it at
+// every use of a texture still in linear memory (~360 a picture on bench7, nearly all to hear "no room"). The total is
+// kept until the next vramAlloc / vramFree of anyone: the linker's --wrap (build3ds.py) brings this file's calls and
+// citro3d's here. RE4_3DS_VRAMKEPT=0: asked every time, as before; 2: kept and checked against the walk
+extern "C" {
+void* __real_vramAlloc(size_t size);
+void* __real_vramAllocAt(size_t size, vramAllocPos pos);
+void* __real_vramMemAlign(size_t size, size_t alignment);
+void* __real_vramMemAlignAt(size_t size, size_t alignment, vramAllocPos pos);
+void __real_vramFree(void* mem);
+u32 re4_vram_epoch = 1;
+void* __wrap_vramAlloc(size_t size)
+{
+    re4_vram_epoch++;
+    return __real_vramAlloc(size);
+}
+void* __wrap_vramAllocAt(size_t size, vramAllocPos pos)
+{
+    re4_vram_epoch++;
+    return __real_vramAllocAt(size, pos);
+}
+void* __wrap_vramMemAlign(size_t size, size_t alignment)
+{
+    re4_vram_epoch++;
+    return __real_vramMemAlign(size, alignment);
+}
+void* __wrap_vramMemAlignAt(size_t size, size_t alignment, vramAllocPos pos)
+{
+    re4_vram_epoch++;
+    return __real_vramMemAlignAt(size, alignment, pos);
+}
+void __wrap_vramFree(void* mem)
+{
+    re4_vram_epoch++;
+    __real_vramFree(mem);
+}
+}
 
 namespace {
 
@@ -379,6 +423,15 @@ int gColorAttr, gMatrixAttr, gTexAttr[3], gNormalAttr;
 // them apart), RGBA 0..1; the TEV registers changed since the combiners were set
 float gTevReg[4][4], gKonst[4][4];
 bool gTevDirty = true;
+// (X, review 2026-11-24 finding 11) The stages citro3d holds, where known (bit i of the mask): a cache hit gives it
+// those that differ alone - C3D_SetTexEnv copies a stage and marks it to be sent with no compare (C3D_GetTexEnv marks
+// it too: hence a copy of ours). Forgotten wherever the stages are written another way (the builder, the clear's and
+// the contrast's quads, the start) or are to go again (a picture's begin, the GPU given back).
+// RE4_3DS_TEVGIVEN=0: every stage of a hit given, as before
+C3D_TexEnv gTevGiven[6];
+u32 gTevGivenMask;
+bool gTevGivenOn = true;
+static_assert(sizeof(C3D_TexEnv) == 20, "a combiner stage: five words, no padding (compared whole)");
 u32 gTevBuilt;  // the combiners built (buildTev), per log window
 // (stage 7.0) Sprites in a row (the rain of r10b: ~700 a picture, each its position matrix and the TEV register 0xC1
 // written twice back to its value): one GPU draw. BP writes of the TEV's registers leave the batch open: compared at
@@ -427,8 +480,11 @@ struct Texture {
     float avg[4];
     bool mipNear;  // the mipmap filter is GPU_NEAREST (RE4_3DS_MIPNEAR)
     bool turned = false;  // (R4) a render target's copy: its s the GX t, its t the GX s, each the other way round
+    bool preloaded = false;  // (2026-11-24) read ahead (RE4_3DS_TEXPRELOAD), not bound since
 };
 std::unordered_map<u64, Texture*> gTextures;
+u32 gPreUsed, gPreWasted, gPreEvicted;  // (per log window) read ahead and bound later; gone unbound; others pushed out
+bool gPreloading;  // (2026-11-24) reading ahead now: no texture made smaller, none read ahead pushed out
 // Textures in VRAM (stage 3.8): copied there by a DMA of the GX queue when bound from picture
 // gTexVramFrom on (RE4_3DS_TEXVRAM, 0: never), at most kTexDmas a picture, kVramTex in all and
 // kVramSpare left free; RE4_3DS_TEXLOD=N: a LOD bias of +1 from picture N (an experiment). Where that is short,
@@ -466,6 +522,9 @@ u32 gTexMask = 63, gTexSteps, gTexStep, gTexStepFrom[8], gTexStepMask[8];
 // not yet drawn in this one: what came later in it went, and was made anew, 816 a log window); still short, it is made
 // at half its longer side, to kTexShrinkMin texels; one not made is tried again kTexRetryAfter pictures later.
 const u32 kTexAge = 2, kTexShrinkMin = 128 * 128, kTexRetryAfter = 30;
+// (2026-11-24) the age initTexture lets go (kTexAge; reading ahead: not drawn since the file was opened); reading ahead
+// a texture is not made smaller for room
+u32 gTexAgeNow = kTexAge;
 std::unordered_map<u64, u32> gTexRetry;  // a texture not made -> the picture to try it again
 u32 gTexShrunk, gTexNotRetried;          // per log window
 
@@ -494,6 +553,7 @@ bool mapped(const Texture* tex)
 // A texture gone: its texels in VRAM and in linear memory
 void deleteTexture(u64 key, Texture* tex)
 {
+    gPreWasted += tex->preloaded;
     for (Texture*& m : gMaps) {
         m = m == tex ? nullptr : m;
     }
@@ -518,7 +578,8 @@ bool dropOldest(u32 age = 1, bool linearOnly = false)
     u64 key = 0;
     for (auto& e : gTextures) {
         if (e.second->lastFrame + age <= gFrameNo && (!linearOnly || e.second->linear) && e.second->busyUntil <= gFrameNo &&
-            (!oldest || e.second->lastFrame < oldest->lastFrame) && !mapped(e.second)) {
+            (!oldest || e.second->lastFrame < oldest->lastFrame) && !mapped(e.second) &&
+            !(gPreloading && e.second->preloaded)) {  // (2026-11-24: reading ahead pushes out no texture read ahead)
             oldest = e.second;
             key = e.first;
         }
@@ -528,6 +589,7 @@ bool dropOldest(u32 age = 1, bool linearOnly = false)
     }
     deleteTexture(key, oldest);
     gTexDropped++;
+    gPreEvicted += gPreloading;  // (2026-11-24: pushed out by reading ahead)
     return true;
 }
 
@@ -559,10 +621,10 @@ bool initTexture(Texture* tex, re4pica::Pack pack, u32 W, u32 H, bool mipmaps)
     const u32 texBytes = W * H * re4pica::kPackBits[pack] / 8 * (mipmaps ? 4 : 3) / 3;
     while (linearSpaceFree() <
                texBytes + (!gArena && gKeeping && gKeptLive < kKeepReserve ? kKeepReserve - gKeptLive : 0) &&
-           dropOldest(kTexAge, true)) {
+           dropOldest(gTexAgeNow, true)) {
     }
     bool made;
-    while (!(made = C3D_TexInitWithParams(&tex->tex, nullptr, params)) && dropOldest(kTexAge, true)) {
+    while (!(made = C3D_TexInitWithParams(&tex->tex, nullptr, params)) && dropOldest(gTexAgeNow, true)) {
     }
     return made;
 }
@@ -602,6 +664,10 @@ struct PakCached {
 };
 PakCached gPakCache[kPakCached];
 u32 gPakUse, gPakBlockReads;  // (the reads per log window)
+// (2026-11-24) RE4_3DS_PAKINDEX (1): the whole index in the C heap (18728 textures: 293 KB), one piece taken when the
+// pack is opened (before the heap breaks up); a new texture in view then costs one SD card request, not two (a block
+// of the index ~6 ms: r118's first seconds 261 of them, ~1.6 s of the GX thread). No room: the index on the SD card
+re4pica::PakEntry* gPakAll;
 // (2026-11-10) The keys, folded to 32 bits and in order, of the pack's textures in a format made here (not of
 // RE4_3DS_TEXPAKFORMATS): such a texture was looked up in the index all the same, a block read from the SD card each
 // (~4.7 ms; bench7: 173 reads in a log window, 140 of them for textures then made here). 4 bytes an entry. Another
@@ -654,13 +720,21 @@ void openPak(const char* path)
         const char* formats = getenv("RE4_3DS_TEXPAKFORMATS");  // (read into gPakFormats after this: the same here)
         const u32 fromPak = formats ? (u32) strtoul(formats, nullptr, 0) : gPakFormats;
         gPakTop.reserve((gPakHead.count + kPakBlock - 1) / kPakBlock);
+        const char* whole = getenv("RE4_3DS_PAKINDEX");
+        if (!(whole && *whole == '0') && gPakHead.count) {
+            gPakAll = (re4pica::PakEntry*) malloc((size_t) gPakHead.count * sizeof(re4pica::PakEntry));
+        }
         u64 last = 0;
         for (u32 at = 0; ok && at < gPakHead.count; at += piece) {
             const u32 n = gPakHead.count - at < piece ? gPakHead.count - at : piece;
             const u32 bytes = n * sizeof(re4pica::PakEntry);
+            re4pica::PakEntry* into = gPakAll ? gPakAll + at : buf.data();
             ok = R_SUCCEEDED(FSFILE_Read(gPakFile, &read, (u64) gPakHead.indexOffset + (u64) at * sizeof(re4pica::PakEntry),
-                                         buf.data(), bytes)) &&
+                                         into, bytes)) &&
                  read == bytes;
+            if (ok && gPakAll) {
+                memcpy(buf.data(), into, bytes);
+            }
             for (u32 i = 0; ok && i < n; i++) {
                 ok = at + i == 0 || buf[i].key > last;
                 last = buf[i].key;
@@ -684,14 +758,18 @@ void openPak(const char* path)
                 (unsigned long) gPakHead.magic, (unsigned long) gPakHead.version, (unsigned long) re4pica::kPakVersion);
         std::vector<u64>().swap(gPakTop);
         std::vector<u32>().swap(gPakHere);
+        free(gPakAll);
+        gPakAll = nullptr;
         gPakCount = 0;
         FSFILE_Close(gPakFile);
         gPakFile = 0;
         return;
     }
-    re4_log("3ds: texture pack %s: %u textures (index on the SD card, %u KB here: a key per %u), made with formats mask "
-            "%lu, mipmaps %lu; %s", path, (unsigned) gPakCount, (unsigned) (gPakTop.size() * 8 + 1023) >> 10,
-            (unsigned) kPakBlock,
+    re4_log("3ds: texture pack %s: %u textures (index %s, %u KB here: %s %u), made with formats mask "
+            "%lu, mipmaps %lu; %s", path, (unsigned) gPakCount,
+            gPakAll ? "in memory, RE4_3DS_PAKINDEX 1" : "on the SD card",
+            (unsigned) (gPakAll ? (gPakCount * sizeof(re4pica::PakEntry) + 1023) >> 10 : (gPakTop.size() * 8 + 1023) >> 10),
+            gPakAll ? "the whole of it, blocks of" : "a key per", (unsigned) kPakBlock,
             (unsigned long) gPakHead.mask, (unsigned long) gPakHead.mipmaps,
             pakUsable() ? "used" : "not used (the textures made otherwise here)");
 }
@@ -700,6 +778,17 @@ const re4pica::PakEntry* inPak(u64 key)
 {
     if (!pakUsable()) {
         return nullptr;
+    }
+    if (gPakAll) {
+        const re4pica::PakEntry* all = gPakAll;
+        const re4pica::PakEntry* end = all + gPakCount;
+        const re4pica::PakEntry* it =
+            std::lower_bound(all, end, key, [](const re4pica::PakEntry& e, u64 k) { return e.key < k; });
+        if (it == end || it->key != key) {
+            return nullptr;
+        }
+        gPakFound = *it;
+        return &gPakFound;
     }
     // the block: the last whose first key is not above it
     auto top = std::upper_bound(gPakTop.begin(), gPakTop.end(), key);
@@ -750,7 +839,7 @@ Texture* loadPacked(const re4pica::PakEntry& e)
     Texture* tex = new Texture;
     tex->lastFrame = gFrameNo;
     while (!initTexture(tex, pack, W, H, e.mipmaps)) {
-        if (!e.mipmaps || re4pica::maxLevel(W, H) == 0 || W * H <= kTexShrinkMin) {
+        if (gPreloading || !e.mipmaps || re4pica::maxLevel(W, H) == 0 || W * H <= kTexShrinkMin) {
             delete tex;
             return nullptr;
         }
@@ -781,6 +870,239 @@ Texture* loadPacked(const re4pica::PakEntry& e)
     gReadTicks[pack] += ticks;
     gReadBytes[pack] += bytes;
     return tex;
+}
+
+// --- (2026-11-24) Textures ahead (RE4_3DS_TEXPRELOAD): a file the game opens -> its textures from the pack while the
+// GX thread has nothing else (re4_3ds_tex_preload_step). The list: /3ds/pueblo/textures.pre (stage94_prelist.py)
+struct PreHead {
+    u32 magic, version, files, keys;
+};
+struct PreFile {
+    u32 hash, first, count;
+};
+const u32 kPreMagic = 0x314C5052u;  // "RPL1"
+const u32 kPreMaxAge = 900;         // pictures: a file's list older than that is let go (made when bound anyway)
+u32 kPreSpare = 3u << 20;     // linear memory left free by reading ahead (stage98: RE4_3DS_TEXPRELOAD_SPARE, KB; 3072:
+                              // r118 18 slow frames against 29 with 1024 - the game's own textures need the room)
+const char kPrePath[] = "/3ds/pueblo/textures.pre";
+int gPreOn;
+Handle gPreFile;
+PreHead gPreHead;
+std::vector<PreFile> gPreFiles;
+struct PreItem {
+    u32 hash, frame;
+};
+LightLock gPreLock;
+std::vector<PreItem> gPreQueue;          // (under gPreLock) the files opened
+u32 gPreQueuedN;                         // its size (atomic: the GX thread looks without the lock)
+std::vector<u64> gPreKeys;               // the file being read ahead
+u32 gPreAt, gPreEpoch;                   // its next key; the picture it was opened at
+std::vector<PreItem> gPreDone;           // files read ahead lately (not again within kPreMaxAge)
+u32 gPreOpened, gPreListed, gPreKeysN, gPreMade, gPreMadeLater, gPreHave, gPreNoPak, gPreNoRoom, gPreOld;  // per window
+u64 gPreTicks, gPreTicksLater;  // read in the picture the file was opened in (a load), in the pictures after it
+u32 gPreSteps = 4, gPreStepFrame, gPreStepsNow;  // RE4_3DS_TEXPRELOAD_STEPS: textures a picture at most
+// (2026-11-24, stage98) the pace by time: the end of the last picture (gFrameNo's step), the time a picture may go to
+// (RE4_3DS_TEXPRELOAD_MS from that end), a read's cost (a running mean); no picture for kPreFreeMs: loading, no limit
+u64 gPreFrameEnd;
+u64 gPreBudgetTicks, gPreReadTicks = (u64) (10 * SYSCLOCK_ARM11 / 1000);
+const u32 kPreFreeMs = 100;
+// the game goes on: reads only after a picture whose GX work (reads ahead left out) was under RE4_3DS_TEXPRELOAD_BUSY
+// (ms, 20): bench7 (the GX thread holds the frame) +0.47 ms a frame without it
+u64 gPreBusyLimit, gPreBusyPrev, gPreBusyMark, gPreAllTicks;
+
+void openPreList()
+{
+    const char* v = getenv("RE4_3DS_TEXPRELOAD");
+    gPreOn = v ? atoi(v) : 2;  // 2 (default): may push out textures not drawn since the file was opened; 1: only free room; 0: off
+    const char* steps = getenv("RE4_3DS_TEXPRELOAD_STEPS");
+    gPreSteps = steps ? (u32) atoi(steps) : 4;
+    const char* spare = getenv("RE4_3DS_TEXPRELOAD_SPARE");
+    if (spare) {
+        kPreSpare = (u32) atoi(spare) << 10;
+    }
+    const char* ms = getenv("RE4_3DS_TEXPRELOAD_MS");
+    gPreBudgetTicks = (u64) ((ms ? atoi(ms) : 22) * (SYSCLOCK_ARM11 / 1000));
+    const char* busy = getenv("RE4_3DS_TEXPRELOAD_BUSY");
+    gPreBusyLimit = (u64) ((busy ? atoi(busy) : 20) * (SYSCLOCK_ARM11 / 1000));
+    LightLock_Init(&gPreLock);
+    if (!gPreOn || !gPakCount) {
+        gPreOn = 0;
+        return;
+    }
+    const char* path = kPrePath;
+    u32 read = 0;
+    bool ok = R_SUCCEEDED(FSUSER_OpenFileDirectly(&gPreFile, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""),
+                                                  fsMakePath(PATH_ASCII, path), FS_OPEN_READ, 0));
+    if (!ok) {
+        gPreFile = 0;
+    }
+    ok = ok && R_SUCCEEDED(FSFILE_Read(gPreFile, &read, 0, &gPreHead, sizeof(gPreHead))) && read == sizeof(gPreHead) &&
+         gPreHead.magic == kPreMagic && gPreHead.version == 1 && gPreHead.files < 65536;
+    if (ok) {
+        gPreFiles.resize(gPreHead.files);
+        const u32 bytes = gPreHead.files * sizeof(PreFile);
+        ok = R_SUCCEEDED(FSFILE_Read(gPreFile, &read, sizeof(gPreHead), gPreFiles.data(), bytes)) && read == bytes;
+    }
+    if (gPreFile) {  // (not kept open: the system's places for open files are few - the HOME menu's panic, 71a4b9a1)
+        FSFILE_Close(gPreFile);
+    }
+    gPreFile = 0;
+    if (!ok) {
+        re4_log("3ds: textures ahead (RE4_3DS_TEXPRELOAD %d): no list %s - off", gPreOn, path);
+        std::vector<PreFile>().swap(gPreFiles);
+        gPreOn = 0;
+        return;
+    }
+    re4_dvd_open_fn = re4_3ds_tex_preload_open;
+    re4_log("3ds: textures ahead (RE4_3DS_TEXPRELOAD %d): list %s, %u files, %u keys", gPreOn, path,
+            (unsigned) gPreHead.files, (unsigned) gPreHead.keys);
+}
+
+// the next file's keys (true: one taken, maybe with no list)
+bool preNextFile()
+{
+    PreItem it;
+    LightLock_Lock(&gPreLock);
+    const bool any = !gPreQueue.empty();
+    if (any) {
+        it = gPreQueue.front();
+        gPreQueue.erase(gPreQueue.begin());
+        __atomic_sub_fetch(&gPreQueuedN, 1, __ATOMIC_SEQ_CST);
+    }
+    LightLock_Unlock(&gPreLock);
+    if (!any) {
+        return false;
+    }
+    if (gFrameNo - it.frame > kPreMaxAge) {
+        gPreOld++;
+        return true;
+    }
+    for (const PreItem& d : gPreDone) {
+        if (d.hash == it.hash && gFrameNo - d.frame <= kPreMaxAge) {
+            return true;
+        }
+    }
+    auto f = std::lower_bound(gPreFiles.begin(), gPreFiles.end(), it.hash,
+                              [](const PreFile& p, u32 h) { return p.hash < h; });
+    if (f == gPreFiles.end() || f->hash != it.hash || !f->count) {
+        return true;
+    }
+    gPreKeys.resize(f->count);
+    u32 read = 0;
+    const u32 bytes = f->count * 8;
+    const u64 at = sizeof(PreHead) + (u64) gPreHead.files * sizeof(PreFile) + (u64) f->first * 8;
+    Handle file = 0;  // (opened for the read only, as the list at the start)
+    const bool ok = R_SUCCEEDED(FSUSER_OpenFileDirectly(&file, ARCHIVE_SDMC, fsMakePath(PATH_EMPTY, ""),
+                                                        fsMakePath(PATH_ASCII, kPrePath), FS_OPEN_READ, 0)) &&
+                    R_SUCCEEDED(FSFILE_Read(file, &read, at, gPreKeys.data(), bytes)) && read == bytes;
+    if (file) {
+        FSFILE_Close(file);
+    }
+    if (!ok) {
+        gPreKeys.clear();
+        return true;
+    }
+    gPreAt = 0;
+    gPreEpoch = it.frame;
+    gPreListed++;
+    gPreKeysN += f->count;
+    if (gPreDone.size() >= 64) {
+        gPreDone.erase(gPreDone.begin());
+    }
+    gPreDone.push_back({it.hash, gFrameNo});
+    return true;
+}
+
+// one step on the GX thread with nothing in its ring: a texture read ahead, or a file's list (false: nothing to do)
+bool preStep()
+{
+    if (!gPreOn) {
+        return false;
+    }
+    if (gPreAt < gPreKeys.size() && gFrameNo - gPreEpoch > kPreMaxAge) {
+        gPreOld++;
+        gPreAt = (u32) gPreKeys.size();  // (the file's list too old: the rest when bound)
+    }
+    // (stage98) the game goes on: while the picture's time lasts, gPreSteps a picture at most; loading: no limit
+    const u64 sinceEnd = svcGetSystemTick() - gPreFrameEnd;
+    const bool loading = sinceEnd > (u64) kPreFreeMs * (SYSCLOCK_ARM11 / 1000);
+    if (gPreAt < gPreKeys.size() && !loading) {
+        if (gPreStepFrame != gFrameNo) {
+            gPreStepFrame = gFrameNo;
+            gPreStepsNow = 0;
+        }
+        if (gPreStepsNow >= gPreSteps || sinceEnd + gPreReadTicks > gPreBudgetTicks || gPreBusyPrev > gPreBusyLimit) {
+            return false;
+        }
+    }
+    while (gPreAt < gPreKeys.size()) {
+        const u64 key = gPreKeys[gPreAt++];
+        if (gTextures.count(key)) {
+            gPreHave++;
+            continue;
+        }
+        const re4pica::PakEntry* e = inPak(key);
+        if (!e) {
+            gPreNoPak++;
+            continue;
+        }
+        const re4pica::PakEntry entry = *e;
+        const u64 from = svcGetSystemTick();
+        const u32 W = 1u << entry.widthLog2, H = 1u << entry.heightLog2;
+        const u32 bytes = W * H * re4pica::kPackBits[entry.pack] / 8 * (entry.mipmaps ? 4 : 3) / 3;
+        // mode 1: only in what is free over kPreSpare; mode 2: textures not drawn since the file was opened may go
+        const u32 age = gPreOn < 2 ? gFrameNo + 1 : gFrameNo - gPreEpoch + 1 > kTexAge ? gFrameNo - gPreEpoch + 1 : kTexAge;
+        gPreloading = true;
+        while (gPreOn >= 2 && linearSpaceFree() < bytes + kPreSpare && dropOldest(age, true)) {
+        }
+        Texture* tex = nullptr;
+        if (linearSpaceFree() >= bytes + kPreSpare) {
+            gTexAgeNow = age;
+            tex = loadPacked(entry);
+            gTexAgeNow = kTexAge;
+        }
+        gPreloading = false;
+        if (!tex) {
+            gPreNoRoom++;
+            gPreAt = (u32) gPreKeys.size();  // the rest of this file: when bound
+            return true;
+        }
+        tex->preloaded = true;
+        tex->lastFrame = gPreEpoch;  // (not younger than the textures it may push out later)
+        gTextures[key] = tex;
+        const bool inOpen = loading;  // (stage98: "while loading")
+        const u64 took = svcGetSystemTick() - from;
+        (inOpen ? gPreMade : gPreMadeLater)++;
+        (inOpen ? gPreTicks : gPreTicksLater) += took;
+        gPreReadTicks = (gPreReadTicks * 7 + took) / 8;
+        gPreAllTicks += took;
+        gPreStepsNow += !inOpen;
+        return true;
+    }
+    return preNextFile();
+}
+
+void preReport()
+{
+    if (!gPreOn) {
+        return;
+    }
+    u32 live = 0;
+    for (auto& e : gTextures) {
+        live += e.second->preloaded;
+    }
+    re4_log("3ds: textures ahead (RE4_3DS_TEXPRELOAD %d, %u a picture at most, RE4_3DS_TEXPRELOAD_MS %u): %u files "
+            "opened, %u with a list "
+            "(%u keys); read %u in %.1f ms in the loads' pictures, %u in %.1f ms after; %u there already, %u not in the "
+            "pack, %u stops for room, %u lists too old; %u others pushed out for them; bound later %u, gone unbound %u, "
+            "unbound now %u, linear free %lu KB", gPreOn, (unsigned) gPreSteps,
+            (unsigned) (gPreBudgetTicks / (SYSCLOCK_ARM11 / 1000)), gPreOpened, gPreListed, gPreKeysN,
+            gPreMade, (double) gPreTicks / CPU_TICKS_PER_MSEC, gPreMadeLater, (double) gPreTicksLater / CPU_TICKS_PER_MSEC,
+            gPreHave, gPreNoPak, gPreNoRoom, gPreOld, gPreEvicted, gPreUsed, gPreWasted, live,
+            (unsigned long) linearSpaceFree() >> 10);
+    gPreOpened = gPreListed = gPreKeysN = gPreMade = gPreMadeLater = gPreHave = gPreNoPak = gPreNoRoom = gPreOld = 0;
+    gPreUsed = gPreWasted = gPreEvicted = 0;
+    gPreTicks = gPreTicksLater = 0;
 }
 
 // A texture not in the pack: counted, and with RE4_3DS_TEXMISS to kMissPath; not after kMissDynamic keys of one address
@@ -1001,9 +1323,35 @@ Texture* makeTexture(const Re4GxTexture* t, const uint8_t* data, const uint8_t* 
     return tex;
 }
 
+// (X, finding 4) VRAM's free total as of the last alloc / free (re4_vram_epoch, the top of this file)
+int gVramKept = 1;
+size_t vramSpaceFreeKept()
+{
+    static u32 epoch;
+    static size_t total;
+    if (!gVramKept) {
+        return vramSpaceFree();
+    }
+    if (epoch != re4_vram_epoch) {
+        epoch = re4_vram_epoch;
+        total = vramSpaceFree();
+    } else if (gVramKept == 2) {
+        const size_t now = vramSpaceFree();
+        if (now != total) {
+            static u32 lines;
+            if (lines++ < 8) {
+                re4_log("3ds: VRAM's kept free total is wrong: %lu, the walk %lu (RE4_3DS_VRAMKEPT)",
+                        (unsigned long) total, (unsigned long) now);
+            }
+            total = now;
+        }
+    }
+    return total;
+}
+
 // A texture's copy in VRAM made where there is room (VRAM, the queue, the DMAs of this picture); the GPU
 // reads it from there once bound again (true: moved)
-bool toVram(Texture* tex)
+__attribute__((noinline)) bool toVram(Texture* tex)
 {
     const gxCmdQueue_s& q = *gQueue;
     if (gTexDmas >= kTexDmas || q.numEntries + kQueueForDma > q.maxEntries) {
@@ -1012,7 +1360,7 @@ bool toVram(Texture* tex)
     // (none stale found in this picture: not looked for again in it; each bind from linear looked through all the
     // textures, ~290 with the room of stage 5.7b: draw() +1.5 ms a picture, r100-3ds-vram57b2.log)
     static u32 noStaleIn = ~0u;
-    while (gTexVramBytes + tex->bytes > kVramTex || vramSpaceFree() < tex->bytes + kVramSpare) {
+    while (gTexVramBytes + tex->bytes > kVramTex || vramSpaceFreeKept() < tex->bytes + kVramSpare) {
         if (noStaleIn == gFrameNo) {
             return false;
         }
@@ -1137,7 +1485,7 @@ bool gTexProj[3];
 u32 gMovieSeq, gMovieTransfers;
 int gMovieFlip = 1;
 
-void movieUpdate()
+__attribute__((noinline)) void movieUpdate()
 {
     const void* out;
     uint32_t seq;
@@ -1288,6 +1636,10 @@ void texture(const Re4GxTexture* t, const uint8_t* data, const uint8_t* tlut, ui
     auto it = gTextures.find(key);
     if (it != gTextures.end()) {
         gMaps[t->map] = it->second;
+        if (it->second->preloaded) {  // (2026-11-24) read ahead: of use
+            it->second->preloaded = false;
+            gPreUsed++;
+        }
         return;
     }
     if (!gTexRetry.empty()) {
@@ -1391,6 +1743,7 @@ u32 gOccCopies, gOccBuilds, gOccNoQueue, gOccSvcFail;
 u64 gOccBuildTicks;
 std::mutex gOccLock;
 OccHiz gOccPub;
+extern "C" unsigned re4_gx_timer_every;  // (X, finding 8; gx_thread_3ds.cpp)
 void occCopy();
 void occBuild();
 
@@ -2281,6 +2634,7 @@ void beginFrame()
     gDmas = 0;
     gTexDmas = 0;
     gTevDirty = true;
+    gTevGivenMask = 0;  // (X, finding 11: a picture's first combiners go whole, as before)
     gZMode = gCMode0 = 0xFFFFFFFF;
     gProjDirty = true;
     gRowsMin = 0;
@@ -2356,7 +2710,7 @@ int gStageCount;
 
 const float kFraction[8] = {1.0f, 0.875f, 0.75f, 0.625f, 0.5f, 0.375f, 0.25f, 0.125f};
 
-void clearCopy(const uint32_t* bp);
+__attribute__((noinline)) void clearCopy(const uint32_t* bp);
 
 void konstColor(u32 sel, float out[3])
 {
@@ -2933,8 +3287,12 @@ bool tevFromCache(const uint32_t* bp)
             }
         }
         for (int i = 0; i < 6; i++) {
-            C3D_SetTexEnv(i, const_cast<C3D_TexEnv*>(&e.env[i]));
+            if (!(gTevGivenMask >> i & 1) || memcmp(&gTevGiven[i], &e.env[i], sizeof(C3D_TexEnv))) {  // (X, finding 11)
+                C3D_SetTexEnv(i, const_cast<C3D_TexEnv*>(&e.env[i]));
+                gTevGiven[i] = e.env[i];
+            }
         }
+        gTevGivenMask = gTevGivenOn ? 0x3F : 0;
         C3D_TexEnvBufUpdate(C3D_Both, e.bufferMask);
         gUnits = e.units;
         for (int u = 0; u < 3; u++) {
@@ -2999,17 +3357,25 @@ void tevToCache(const uint32_t* bp, u8 bufferMask)
     e->scaleShort = (u16) (gTevScaleShort - gTevCacheCount[4]);
     for (int i = 0; i < 6; i++) {
         e->env[i] = *C3D_GetTexEnv(i);
+        gTevGiven[i] = e->env[i];  // (X, finding 11: citro3d's stages as built just now)
     }
+    gTevGivenMask = gTevGivenOn ? 0x3F : 0;
     gTevCacheKept++;
 }
 
 // The texture maps the enabled stages read, on up to three units (gUnitMap, gUnitCoord), and the
 // combiners for the TEV stages of the BP registers.
+__attribute__((noinline)) void buildTevMiss(const uint32_t* bp);  // (X, finding 16: the builder out of drawTimed)
 void buildTev(const uint32_t* bp)
 {
     if (tevFromCache(bp)) {
         return;  // (the TEV cache)
     }
+    buildTevMiss(bp);
+}
+
+void buildTevMiss(const uint32_t* bp)
+{
     const u32 stages = ((bp[0x00] >> 10) & 15) + 1;
     gUnits = 0;
     gStageCount = 0;
@@ -3271,6 +3637,7 @@ void buildTev(const uint32_t* bp)
     gTevAveraged += averaged;  // (stage 6.9)
     // onto the GPU
     u8 bufferMask = 0;
+    gTevGivenMask = 0;  // (X, finding 11: written here)
     for (int i = 0; i < 6; i++) {
         C3D_TexEnv* env = C3D_GetTexEnv(i);
         C3D_TexEnvInit(env);
@@ -3327,7 +3694,7 @@ void setAlphaTest(const uint32_t* bp)
 // GX_TextureCopy in the GX queue, before the draws after it (stage54f_freeze_edits.py, the layout of the 5.4 tries:
 // x = 240 - screen y, y = 400 - screen x, rows in memory from the top). The copy's rectangle (0x49/0x4A, EFB pixels)
 // through the picture's place (gMap) into the buffer: the turn of the GX coordinates for the draws that read it.
-void waterCopy(const uint32_t* bp)
+__attribute__((noinline)) void waterCopy(const uint32_t* bp)
 {
     const u32 dest = (bp[0x4B] & 0x1FFFFF) << 5;
     const bool armed = dest && dest == gWaterArmed;
@@ -3507,7 +3874,7 @@ void texRenderDrop(Texture* t)
     delete t;
 }
 
-void texRenderCopy(const uint32_t* bp)
+__attribute__((noinline)) void texRenderCopy(const uint32_t* bp)
 {
     const u32 dest = (bp[0x4B] & 0x1FFFFF) << 5;
     if (!dest) {
@@ -4501,6 +4868,7 @@ void clearCopy(const uint32_t* bp)
     setSwitch(kTex1, false);
     setSwitch(kTex2, false);
     const u32 r = bp[0x4F] & 0xFF, a = (bp[0x4F] >> 8) & 0xFF, b = bp[0x50] & 0xFF, g = (bp[0x50] >> 8) & 0xFF;
+    gTevGivenMask = 0;  // (X, finding 11: written here)
     for (int i = 0; i < 6; i++) {
         C3D_TexEnv* env = C3D_GetTexEnv(i);
         C3D_TexEnvInit(env);
@@ -4690,7 +5058,7 @@ void fromVram(const void*& vertices, const uint16_t*& indices, u32 count, Block*
     gStats.vramVertices += count;
 }
 
-void drawLines(const Re4GxDraw& d, const void* vertices, const uint16_t* indices, const uint32_t* bp,
+__attribute__((noinline)) void drawLines(const Re4GxDraw& d, const void* vertices, const uint16_t* indices, const uint32_t* bp,
                const uint32_t* xfMem, const uint32_t* xfReg);
 
 // (stage 7.0) The TEV's BP registers (orders, combiners, alpha test, konstant selections)
@@ -4720,6 +5088,7 @@ void tevBpGather(const uint32_t* bp, u32* w)
 // (5.5) Stage 0 of the PICA a constant colour (0..1 each)
 void contrastConst(const float* v)
 {
+    gTevGivenMask = 0;  // (X, finding 11: written here)
     C3D_TexEnv* e = C3D_GetTexEnv(0);
     C3D_TexEnvInit(e);
     C3D_TexEnvSrc(e, C3D_Both, GPU_CONSTANT, GPU_CONSTANT, GPU_CONSTANT);
@@ -4769,6 +5138,7 @@ bool contrastBegin(const uint32_t* bp)
     }
     sumK += k;
     contrastConst(sub);
+    gTevGivenMask = 0;  // (X, finding 11: written here)
     for (int i = 1; i < 6; i++) {
         C3D_TexEnvInit(C3D_GetTexEnv(i));
     }
@@ -4781,7 +5151,7 @@ bool contrastBegin(const uint32_t* bp)
 }
 
 // (5.5) The contrast draw's further passes, at the draw's end (its first took c off): times 1 + k, then d
-void contrastFinish()
+__attribute__((noinline)) void contrastFinish()
 {
     flushBatch();
     const float m[3] = {gContrastMul, gContrastMul, gContrastMul};
@@ -5386,7 +5756,9 @@ void ownCheck(const uint32_t* bp, const uint32_t* xfMem, const uint32_t* xfReg)
 void draw(const Re4GxDraw* dp, const void* vertices, const uint16_t* indices, const uint32_t* bp,
           const uint32_t* xfMem, const uint32_t* xfReg)
 {
-    const u64 from = svcGetSystemTick();
+    // (X, finding 8) every re4_gx_timer_every-th draw timed, times that (gx_decode.cpp PartTimer)
+    static u32 timedCalls;
+    const u64 from = (++timedCalls & (re4_gx_timer_every - 1)) == 0 ? svcGetSystemTick() : 0;
     if (gOwnState) {  // (2026-11-19) the renderer's own state for the decoder's
         if (gOwnState == 2) {
             ownCheck(bp, xfMem, xfReg);
@@ -5394,7 +5766,9 @@ void draw(const Re4GxDraw* dp, const void* vertices, const uint16_t* indices, co
         bp = gOwnBp, xfMem = gOwnXfMem, xfReg = gOwnXfReg;
     }
     drawTimed(dp, vertices, indices, bp, xfMem, xfReg);
-    gStats.drawTicks += svcGetSystemTick() - from;
+    if (from) {
+        gStats.drawTicks += (svcGetSystemTick() - from) * re4_gx_timer_every;
+    }
 }
 
 void drawSplit(const Re4GxDraw* dp, const void* vertices, const void* rest, const float* box, const uint16_t* indices,
@@ -5451,6 +5825,12 @@ void frame(uint32_t xfb, uint32_t width, uint32_t height)
         }
     }
     gFrameNo++;
+    gPreFrameEnd = svcGetSystemTick();  // (stage98: the pace of textures ahead; the picture's GX work without them)
+    {
+        const u64 busyNow = re4_hud_gx_busy - gPreAllTicks;
+        gPreBusyPrev = (s64) (busyNow - gPreBusyMark) > 0 ? busyNow - gPreBusyMark : 0;  // (the busy line: a game frame's)
+        gPreBusyMark = busyNow;
+    }
     gStats.frames++;
     gStats.ticks += svcGetSystemTick() - from;
 }
@@ -5515,6 +5895,7 @@ extern "C" int re4_3ds_gx_init(void)
     }
     C3D_BindProgram(&gProgram);
     gUnifBound[0] = gUnifBound[1] = false;
+    gTevGivenMask = 0;  // (X, finding 11: written here)
     C3D_TexEnv* env = C3D_GetTexEnv(0);
     C3D_TexEnvInit(env);
     C3D_TexEnvSrc(env, C3D_Both, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR, GPU_PRIMARY_COLOR);
@@ -5681,8 +6062,15 @@ extern "C" int re4_3ds_gx_init(void)
     if (const char* join = getenv("RE4_3DS_SPRITEJOIN")) {  // (stage 7.0)
         gSpriteJoin = *join != '0';
     }
+    if (const char* vk = getenv("RE4_3DS_VRAMKEPT")) {  // (X, finding 4)
+        gVramKept = atoi(vk);
+    }
+    re4_log("3ds: VRAM's free total kept between allocs (RE4_3DS_VRAMKEPT) %d", gVramKept);
     if (const char* tc = getenv("RE4_3DS_TEVCACHE")) {  // (the TEV cache)
         gTevCacheOn = *tc != '0';
+    }
+    if (const char* tg = getenv("RE4_3DS_TEVGIVEN")) {  // (X, finding 11)
+        gTevGivenOn = *tg != '0';
     }
     if (const char* pack = getenv("RE4_3DS_TEVPACK")) {  // (stage 6.9)
         gTevPack = *pack != '0';
@@ -5734,6 +6122,7 @@ extern "C" int re4_3ds_gx_init(void)
     const char* pak = getenv("RE4_3DS_TEXPAK");
     if (!pak || *pak != '0') {
         openPak(pak ? pak : "/3ds/pueblo/textures.pak");
+        openPreList();  // (2026-11-24) textures ahead
     }
     if (const char* formats = getenv("RE4_3DS_TEXPAKFORMATS")) {
         gPakFormats = (u32) strtoul(formats, nullptr, 0);
@@ -5822,6 +6211,7 @@ extern "C" void re4_3ds_gx_home(int away)
         memset(gSlotLight, 0xFF, sizeof(gSlotLight));
         memset(gSwitch, 0xFF, sizeof(gSwitch));
         gTevDirty = true;
+        gTevGivenMask = 0;  // (X, finding 11: the GPU given back - all of them again)
         gZMode = gCMode0 = 0xFFFFFFFF;
         gProjDirty = true;
         gScissorKey[0] = ~0u;
@@ -6158,6 +6548,7 @@ extern "C" void re4_3ds_gx_frame(int log)
             gTexNotInPak, gTexMissed, gMissFile ? kMissPath : "nowhere", gPakBlockReads, gPakHereHits,
             (unsigned) gPakHere.size());
     gPakBlockReads = 0;
+    preReport();  // (2026-11-24) textures ahead
     gPakHereHits = 0;
     char costs[512];
     int used = 0;
@@ -6222,6 +6613,11 @@ float gOccT[3][4];  // this frame's eye -> that picture's eye
 float gOccP[4][4];  // this frame's eye -> that picture's screen clip (gOccH.m * gOccT)
 u32 gOccFrameTested, gOccFrameLeft, gOccSparseFrames;
 float gOccShare = 1.0f;  // the share of the parts tested left out, smoothed over frames
+// (2026-11-25, RE4_3DS_OCC_SPARSE=N) the parts left out a frame, smoothed: under N the sparse mode too, over 1.5 N (and
+// the share over 8 %) every picture again (45 by default: recording 16 and bench7, 2026-11-25); 0: by the share only
+float gOccLeftEma = 1000.0f;
+float gOccSparseMin = 45.0f;
+u32 gOccEmaFrames, gOccEmaUnder[5];  // (the count for N) tested frames; of them under 20 / 30 / 45 / 60 / 90
 int gOccMargin = 16;
 float gOccTurnMax = 4.0f, gOccMoveMax = 500.0f;
 u32 gOccLeftParts, gOccLeftInfos, gOccCalmNot, gOccTested;
@@ -6410,6 +6806,11 @@ extern "C" void re4_occ_frame(unsigned f)
         if (const char* v = getenv("RE4_3DS_OCC_MOVE")) {
             gOccMoveMax = (float) atof(v);
         }
+        if (const char* v = getenv("RE4_3DS_OCC_SPARSE")) {
+            gOccSparseMin = (float) atof(v);
+            re4_log("3ds: occlusion cull: a depth every 8th picture also while under %.0f parts a frame are left out "
+                    "(RE4_3DS_OCC_SPARSE)", gOccSparseMin);
+        }
         re4_log("3ds: occlusion cull: margin %d px, not when the camera turned more than %.1f deg or moved more than "
                 "%.0f since the depth's picture (RE4_3DS_OCC_MARGIN, _TURN, _MOVE)",
                 gOccMargin, gOccTurnMax, gOccMoveMax);
@@ -6419,7 +6820,21 @@ extern "C" void re4_occ_frame(unsigned f)
     // every picture again
     if (gOccFrameTested) {
         gOccShare = gOccShare * 0.9f + 0.1f * (float) gOccFrameLeft / (float) gOccFrameTested;
-        re4_occ_sparse = gOccShare < 0.05f ? 1 : gOccShare > 0.08f ? 0 : re4_occ_sparse;
+        gOccLeftEma = gOccLeftEma * 0.9f + 0.1f * (float) gOccFrameLeft;
+        {
+            static const float kUnder[5] = {20.0f, 30.0f, 45.0f, 60.0f, 90.0f};
+            gOccEmaFrames++;
+            for (int k = 0; k < 5; k++) {
+                gOccEmaUnder[k] += gOccLeftEma < kUnder[k];
+            }
+        }
+        if (gOccSparseMin > 0.0f) {  // (2026-11-25) by how many are left out too: little hidden is not worth the copy
+            re4_occ_sparse = gOccShare < 0.05f || gOccLeftEma < gOccSparseMin                        ? 1
+                             : gOccShare > 0.08f && gOccLeftEma > gOccSparseMin * 1.5f ? 0
+                                                                                        : re4_occ_sparse;
+        } else {
+            re4_occ_sparse = gOccShare < 0.05f ? 1 : gOccShare > 0.08f ? 0 : re4_occ_sparse;
+        }
     }
     gOccSparseFrames += re4_occ_sparse != 0;
     gOccFrameTested = gOccFrameLeft = 0;
@@ -6450,6 +6865,10 @@ extern "C" void re4_occ_frame(unsigned f)
                 f, gOccTested / n, gOccLeftParts / n, gOccLeftInfos / n, gOccCalmNot / n,
                 (double) gOccGameTicks / CPU_TICKS_PER_MSEC / n, gOccSparseFrames);
         gOccTested = gOccLeftParts = gOccLeftInfos = gOccCalmNot = gOccSparseFrames = 0;
+        re4_log("3ds: occlusion cull (game, frame %u): %u frames tested; the parts left out a frame (smoothed, a model 4) "
+                "under 20 / 30 / 45 / 60 / 90 on %u / %u / %u / %u / %u of them",
+                f, gOccEmaFrames, gOccEmaUnder[0], gOccEmaUnder[1], gOccEmaUnder[2], gOccEmaUnder[3], gOccEmaUnder[4]);
+        gOccEmaFrames = gOccEmaUnder[0] = gOccEmaUnder[1] = gOccEmaUnder[2] = gOccEmaUnder[3] = gOccEmaUnder[4] = 0;
         gOccGameTicks = 0;
     }
 }
@@ -6525,4 +6944,42 @@ extern "C" int re4_occ_sphere3(const float* pos, float radius, const float (*v)[
     }
     gOccSphTicks += svcGetSystemTick() - from;
     return hidden;
+}
+
+// (2026-11-24) textures ahead: entry points (stage94_texpreload_edits.py)
+void (*re4_dvd_open_fn)(const char* path);  // (runtime/dvd.cpp declares it too; defined here for the 3DS)
+
+// any thread (the game's, the DVD reader's): the file's hash queued for the GX thread, which is woken
+extern "C" void re4_3ds_tex_preload_open(const char* path)
+{
+    if (!gPreOn || !path) {
+        return;
+    }
+    u32 h = 0x811C9DC5u;
+    for (const char* c = path; *c; c++) {
+        const u8 ch = (u8) (*c >= 'A' && *c <= 'Z' ? *c + 32 : *c);
+        h = (h ^ ch) * 0x01000193u;
+    }
+    LightLock_Lock(&gPreLock);
+    if (gPreQueue.size() < 256) {
+        gPreQueue.push_back({h, gFrameNo});
+        __atomic_add_fetch(&gPreQueuedN, 1, __ATOMIC_SEQ_CST);
+    }
+    gPreOpened++;
+    LightLock_Unlock(&gPreLock);
+    if (re4_3ds_gx_wake_fn) {
+        re4_3ds_gx_wake_fn();
+    }
+}
+
+// the GX thread, its ring empty: true when it did something (then it looks at the ring again)
+extern "C" int re4_3ds_tex_preload_step(void)
+{
+    return preStep() ? 1 : 0;
+}
+
+// the GX thread: anything to read ahead (off: never - the loop as before)
+extern "C" int re4_3ds_tex_preload_wants(void)
+{
+    return gPreOn && (gPreAt < gPreKeys.size() || __atomic_load_n(&gPreQueuedN, __ATOMIC_SEQ_CST) != 0);
 }
